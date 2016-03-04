@@ -1,0 +1,5 @@
+current approach: find all rect, remove outer rects, take only those rect that have colour and merge them together
+
+find all rect, remove outer rects, iterate block by block(5*5) instead of pixel by pixel and see central pixel for colour
+
+find coloured pixels first, do clustering(bfs maybe, better approach??), expand the bounding rect found, now find rectangles inside each cluster and then discretize.
