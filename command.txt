@@ -1,1 +1,5 @@
 convert -density 300 1.pdf -quality 100 -sharpen 0x1.0 1.png
+convert 1.pdf 1_low.png
+convert -density 50 1.pdf -quality 100 1_verylow.png
+
+density affects height and width

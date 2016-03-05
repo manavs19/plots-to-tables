@@ -15,7 +15,7 @@ if PY3:
 import numpy as np
 import cv2
 import copy
-
+from bfs import BFS
 
 def angle_cos(p0, p1, p2):
     d1, d2 = (p0-p1).astype('float'), (p2-p1).astype('float')
@@ -72,18 +72,8 @@ def sortRectangle(r):
 	r = np.array(r)
 	return r
 
-def isInsideRectangle(i, j, rectangle):
-	dist = cv2.pointPolygonTest(rectangle,(i,j),False)
-	if dist==1:
-		return 1
-	else:
-		return 0
-
-
-def filterRectangles(rectangles, img):
-	#filters rectangles that contain at least one coloured pixel
-	#merges nearby rectangles. takes max area rectangle
-
+def getMask(img):
+	#returns mask for coloured pixels
 	imgHSV = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)        
 	#white
 	lowerWhite = np.array([0,0,0], dtype=np.uint8)
@@ -97,45 +87,82 @@ def filterRectangles(rectangles, img):
 
 	mask = cv2.bitwise_or(maskWhite, maskBlack)
 	mask = cv2.bitwise_not(mask)
+	cv2.imwrite('mask.jpg', mask)
+	return mask
 
-	# print type(mask)
-	# print mask.shape
-	
-	validRectangles = []
-	height, width = mask.shape
-	for i in range(0, height):
-		for j in range(0, width):
-			if mask[i][j]!=0:#coloured pixel
-				# print mask[i][j]
-				tempList = []#list of rectangles that contain pixel i,j		
-				for rectangle in rectangles:
-					if isInsideRectangle(i, j, rectangle):
-						tempList.append(rectangle)
+def canMerge(rectangle1, rectangle2):
+	# If one rectangle is on left side of other
+	if rectangle1[0][0] > rectangle2[2][0] or rectangle2[0][0] > rectangle1[2][0]:
+		return False
+	# If one rectangle is above other
+	if rectangle1[0][1] > rectangle2[2][1] or rectangle2[0][1] > rectangle1[2][1]:
+		return False
+	return True
 
-				if tempList:#not empty
-					maxArea = 0
-					maxRectangle = None
-					for rectangle in tempList:
-						area = cv2.contourArea(rectangle)
-						if area > maxArea:
-							maxArea = area
-							maxRectangle = rectangle
+def merge(rectangle1, rectangle2):
+	# merges 2 rectangles
+	minX = min(rectangle1[0][0], rectangle2[0][0])
+	maxX = max(rectangle1[2][0], rectangle2[2][0])
+	minY = min(rectangle1[0][1], rectangle2[0][1])
+	maxY = max(rectangle1[2][1], rectangle2[2][1])
 
-					temp1 = []
-					for r in rectangles:
-						temp1.append(r.tolist())
-					temp2 = []
-					for r in tempList:
-						temp2.append(r.tolist())
+	return np.array([[minX,minY],[minX,maxY],[maxX,maxY], [maxX, minY]], dtype=np.int32)
 
-					tt = [item for item in temp1 if item not in temp2]
-					rectangles = []
-					for r in tt:
-						rectangles.append(np.array(r))
-					rectangles.append(maxRectangle)
-					validRectangles.append(maxRectangle)
+def expandRectangle(rectangle, height, width):
+	#exapnd 10% on all sides
+	ratio = 0.1 #10%
+	minX = rectangle[0][0]
+	maxX = rectangle[2][0]
+	minY = rectangle[0][1]
+	maxY = rectangle[2][1]
 
-	return validRectangles
+	deltaX = int((maxX - minX)*ratio)
+	deltaY = int((maxY - minY)*ratio)
+
+	minX -= deltaX
+	maxX += deltaX
+	minY -= deltaY
+	maxY += deltaY
+
+	minX = max(0, minX)
+	maxX = min(width-1, maxX)
+	minY = max(0, minY)
+	maxY = min(height-1, maxY)
+
+	return np.array([[minX,minY],[minX,maxY],[maxX,maxY], [maxX, minY]], dtype=np.int32)
+
+def pruneRectangles(rectangles, height, width):
+	#should be at least one hundredth of area
+	thresholdArea = int((height*width)*0.01)
+	prunedRectangles = []
+	for rectangle in rectangles:
+		contourArea = cv2.contourArea(rectangle)
+		if contourArea > thresholdArea:
+			prunedRectangles.append(rectangle)
+
+	return prunedRectangles
+
+def mergeRectangles(rectangles, height, width):
+	#expand all rectangles
+	expandedRectangles = []
+	for rectangle in rectangles:
+		expandedRectangles.append(expandRectangle(rectangle, height, width))
+	rectangles = expandedRectangles
+
+	print expandedRectangles
+
+	ans = []
+	for rectangle in rectangles:
+		currAns = []
+		mergedRect = rectangle
+		for r2 in ans:
+			if canMerge(mergedRect, r2):
+				mergedRect = merge(mergedRect, r2)
+			else:
+				currAns.append(r2)
+		currAns.append(mergedRect)
+		ans = currAns
+	return ans
 	
 # yo = np.array([[ 736,   488], [1724,  489], [1723, 2021], [ 732, 2018]])
 # yo = sortRectangle(yo)
@@ -162,29 +189,37 @@ def filterRectangles(rectangles, img):
 
 if __name__ == '__main__':
     from glob import glob
-    for fn in glob('data/3.png'):
+    for fn in glob('data/1_verylow.png'):
     	img = cv2.imread(fn)
-
     	height, width = img.shape[:2]
-    	imgArea = height * width
+    	
+    	mask = getMask(img)
+    	rectangles = BFS(mask).getRectangles()
+    	print len(rectangles)
+    	rectangles = pruneRectangles(rectangles, height, width)
+    	print len(rectangles)
+    	rectangles = mergeRectangles(rectangles, height, width)
+    	print len(rectangles)
 
-    	imgCopy = img.copy()
-        rectangles = findRectangles(imgCopy)
-        print len(rectangles)
-        validRectangles = []
-        for rectangle in rectangles:
-        	if not isBoundaryRectangle(rectangle, imgArea):
-        		validRectangles.append(rectangle)
 
-        print len(validRectangles) 
-        rectangles = validRectangles
+    	# imgArea = height * width
 
-        validRectangles = filterRectangles(rectangles, img)
-        print len(validRectangles) 
+    	# imgCopy = img.copy()
+     #    rectangles = findRectangles(imgCopy)
+     #    print len(rectangles)
+     #    validRectangles = []
+     #    for rectangle in rectangles:
+     #    	if not isBoundaryRectangle(rectangle, imgArea):
+     #    		validRectangles.append(rectangle)
 
-        cv2.drawContours(imgCopy, validRectangles, -1, (0, 255, 0), 3 )
-        cv2.imwrite('rectangles.png', imgCopy)
-        # cv2.imshow('rectangles', img)
+     #    print len(validRectangles) 
+     #    rectangles = validRectangles
+
+        # validRectangles = filterRectangles(rectangles, img)
+        # print len(validRectangles) 
+
+        cv2.drawContours(img, rectangles, -1, (0, 255, 0), 3 )
+        cv2.imwrite('rectangles.png', img)
         
         ch = 0xFF & cv2.waitKey()
         if ch == 27:
