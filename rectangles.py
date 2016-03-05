@@ -54,13 +54,14 @@ def findRectangles(img):
 def isBoundaryRectangle(r, imgArea):
 	contourArea = cv2.contourArea(r)
 	# print contourArea, imgArea
-	#check if are is 80%
+	#check if area is 90%
 	if float(contourArea) > 0.9 * float(imgArea):
-		return 1
-	return 0
+		return True
+	return False
 
-def sortRectangle(r):
+def makeConventionalRectangle(r):
 	#Counter-clock, 1st point is top left
+	#makes proper rectangle
 	r = r.tolist()
 	r.sort(key=lambda x: x[0])
 	if r[0][1] > r[1][1]:
@@ -69,8 +70,20 @@ def sortRectangle(r):
 	if r[3][1] > r[2][1]:
 		r[3], r[2] = r[2], r[3]
 
-	r = np.array(r)
+	minX = min(r[0][0], r[1][0])
+	maxX = max(r[2][0], r[3][0])
+	minY = min(r[0][1], r[3][1])
+	maxY = max(r[1][1], r[2][1])
+
+	r = [[minX, minY], [minX, maxY], [maxX, maxY], [maxX, minY]]
+	r = np.array(r, dtype=np.int32)
 	return r
+
+def makeConventionalRectangles(rectangles):
+	conventionalRectangles = []
+	for rectangle in rectangles:
+		conventionalRectangles.append(makeConventionalRectangle(rectangle))
+	return conventionalRectangles
 
 def getMask(img):
 	#returns mask for coloured pixels
@@ -133,24 +146,17 @@ def expandRectangle(rectangle, height, width):
 
 def pruneRectangles(rectangles, height, width):
 	#should be at least one hundredth of area
+	#and not boundary rectangle
 	thresholdArea = int((height*width)*0.01)
 	prunedRectangles = []
 	for rectangle in rectangles:
 		contourArea = cv2.contourArea(rectangle)
-		if contourArea > thresholdArea:
+		if (contourArea > thresholdArea) and (not isBoundaryRectangle(rectangle, height*width)):
 			prunedRectangles.append(rectangle)
 
 	return prunedRectangles
 
-def mergeRectangles(rectangles, height, width):
-	#expand all rectangles
-	expandedRectangles = []
-	for rectangle in rectangles:
-		expandedRectangles.append(expandRectangle(rectangle, height, width))
-	rectangles = expandedRectangles
-
-	print expandedRectangles
-
+def mergeRectangles(rectangles, height, width):	
 	ans = []
 	for rectangle in rectangles:
 		currAns = []
@@ -168,56 +174,48 @@ def mergeRectangles(rectangles, height, width):
 # yo = sortRectangle(yo)
 # print yo
 
-# def isColoured(img, r):
-# 	r = sortRectangle(r)
-# 	xStart = max(r[0][0], r[1][0])
-# 	xEnd = min(r[2][0], r[3][0])
+def isColoured(rectangle, mask):
+	minX = min(rectangle[0][0], rectangle[1][0])
+	maxX = max(rectangle[2][0], rectangle[3][0])
+	minY = min(rectangle[0][1], rectangle[3][1])
+	maxY = max(rectangle[1][1], rectangle[2][1])
 
-# 	yStart = max(r[0][1], r[3][1])
-# 	yEnd = min(r[1][1], r[2][1])
+	numColouredPixels = 0 #avoid stray coloured pixels inside tables
+	colouredPixelThreshold = 20
+	for x in range(minX, maxX+1):
+		for y in range(minY, maxY+1):
+			if mask[y][x]!=0:#coloured pixel
+				numColouredPixels += 1
+				if numColouredPixels >= colouredPixelThreshold:
+					return True
+	return False #not coloured
 
-
-# 	for y in range(yStart, yEnd+1):
-# 		for x in range(xStart, xEnd+1):
-# 			if img[x][y][0] > 5 and img[x][y][0] < 250:
-# 				return 1
-# 			if img[x][y][1] > 5 and img[x][y][1] < 250:
-# 				return 1
-# 			if img[x][y][2] > 5 and img[x][y][2] < 250:
-# 				return 1
-# 	return 0 #not coloured
+def getColouredRectangles(rectangles, mask):
+	colouredRectangles = []
+	for rectangle in rectangles:
+		if isColoured(rectangle, mask):
+			colouredRectangles.append(rectangle)
+	return colouredRectangles
 
 if __name__ == '__main__':
     from glob import glob
-    for fn in glob('data/1_verylow.png'):
+    for fn in glob('data/3.png'):
     	img = cv2.imread(fn)
-    	height, width = img.shape[:2]
+    	height, width = img.shape[:2]    	
     	
-    	mask = getMask(img)
-    	rectangles = BFS(mask).getRectangles()
-    	print len(rectangles)
-    	rectangles = pruneRectangles(rectangles, height, width)
-    	print len(rectangles)
+    	imgCopy = img.copy()
+        rectangles = findRectangles(imgCopy)
+        print "all rectangles = ", len(rectangles)
+        rectangles = pruneRectangles(rectangles, height, width)
+    	print "pruned rectangle = ", len(rectangles)
+    	rectangles = makeConventionalRectangles(rectangles)#make proper rectangles
     	rectangles = mergeRectangles(rectangles, height, width)
-    	print len(rectangles)
+    	print "merged rectangles = ", len(rectangles)
 
-
-    	# imgArea = height * width
-
-    	# imgCopy = img.copy()
-     #    rectangles = findRectangles(imgCopy)
-     #    print len(rectangles)
-     #    validRectangles = []
-     #    for rectangle in rectangles:
-     #    	if not isBoundaryRectangle(rectangle, imgArea):
-     #    		validRectangles.append(rectangle)
-
-     #    print len(validRectangles) 
-     #    rectangles = validRectangles
-
-        # validRectangles = filterRectangles(rectangles, img)
-        # print len(validRectangles) 
-
+    	mask = getMask(img)
+    	rectangles = getColouredRectangles(rectangles, mask)
+    	print "coloured rectangles = ", len(rectangles)
+    	
         cv2.drawContours(img, rectangles, -1, (0, 255, 0), 3 )
         cv2.imwrite('rectangles.png', img)
         
