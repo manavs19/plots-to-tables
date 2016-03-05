@@ -180,9 +180,16 @@ def isColoured(rectangle, mask):
 	minY = min(rectangle[0][1], rectangle[3][1])
 	maxY = max(rectangle[1][1], rectangle[2][1])
 
+	#optimization: intead of looking in complete rectangle
+	#look into a 20% width strip in middle of rectangle
+	stripWidth = int((maxX - minX)*0.1)
+	midX = (minX + maxX)/2
+	xStart = max(0, midX - stripWidth)
+	xEnd = min(maxX, midX + stripWidth)
+
 	numColouredPixels = 0 #avoid stray coloured pixels inside tables
-	colouredPixelThreshold = 20
-	for x in range(minX, maxX+1):
+	colouredPixelThreshold = 10
+	for x in range(xStart, xEnd+1):
 		for y in range(minY, maxY+1):
 			if mask[y][x]!=0:#coloured pixel
 				numColouredPixels += 1
