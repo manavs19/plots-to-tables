@@ -1,0 +1,3 @@
+canmerge() - what if they are actually 2 different rectangles and very few pixels in common. overlap area should be atleast 80%. check intersection of the 2 rectangles.
+http://stackoverflow.com/questions/17810681/intersection-area-of-2-polygons-in-opencv
+

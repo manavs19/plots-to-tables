@@ -3,3 +3,5 @@ convert 1.pdf 1_low.png
 convert -density 50 1.pdf -quality 100 1_verylow.png
 
 density affects height and width
+
+g++ file.cpp `pkg-config --libs opencv --cflags`
