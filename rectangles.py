@@ -17,6 +17,7 @@ import cv2
 import copy
 from bfs import BFS
 from pdfManager import PDFManager
+import operator
 
 def angle_cos(p0, p1, p2):
     d1, d2 = (p0-p1).astype('float'), (p2-p1).astype('float')
@@ -95,7 +96,49 @@ def findRectangles(img):
         #       squares.append(cnt)
     return squares
 
-def findLegend(i, img):
+def containsRectangle(img):
+    img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    height, width = img.shape[:2]
+    square = None
+    maxArea = -1
+    _,img = cv2.threshold(img, 250, 255, 1)
+    _,contours, hierarchy = cv2.findContours(img, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    thresholdArea = int((height*width)*0.01)
+    for cnt in contours:
+        if len(cnt) < 4:
+            continue
+        contourArea = cv2.contourArea(cnt)
+        if (contourArea < thresholdArea):
+            continue
+
+        cnt_len = cv2.arcLength(cnt, True)
+        cnt = cv2.approxPolyDP(cnt, 0.02*cnt_len, True)
+
+        if len(cnt) == 4 and cv2.contourArea(cnt) > 1000 and cv2.isContourConvex(cnt):
+            cnt = cnt.reshape(-1, 2)
+            max_cos = np.max([angle_cos( cnt[i], cnt[(i+1) % 4], cnt[(i+2) % 4] ) for i in xrange(4)])
+            if max_cos < 0.1:
+                if contourArea > maxArea:
+                    square = cnt
+                    maxArea = contourArea
+    if square!=None:
+        square = makeConventionalRectangle(square)
+    return square
+
+def canMergeLabel(label1, label2):
+    delta = 5
+    if label1[3]+delta<label2[1] or label2[3]+delta<label1[1]:
+        return False
+    return True
+
+def mergeLabel(label1, label2):
+    minX = min(label1[0], label2[0])
+    minY = min(label1[1], label2[1])
+    maxX = max(label1[2], label2[2])
+    maxY = max(label1[3], label2[3])
+    return (minX, minY, maxX, maxY)
+
+def findLabels(i, img):
     #Returns contour for legend text inside img(plot)
     imgHSV = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)        
     #black
@@ -103,15 +146,11 @@ def findLegend(i, img):
     upperBlack = np.array([180, 255, 15], dtype=np.uint8)
     mask = cv2.inRange(imgHSV, lowerBlack, upperBlack)
 
-    # colouredMask = getMask(img)
-    # colouredMask = cv2.bitwise_not(colouredMask)
-    # mask = cv2.bitwise_and(mask, colouredMask)
-
     kernel = np.ones((2,2),np.uint8)
     mask = cv2.morphologyEx(mask,cv2.MORPH_OPEN, kernel)#open to remove white noise
     kernel = np.ones((3,3),np.uint8)
     mask = cv2.dilate(mask, kernel, iterations=25)#dilate to join white pixels in legend
-    cv2.imwrite('mask'+str(i)+'.png', mask)
+    # cv2.imwrite('mask'+str(i)+'.png', mask)
 
     #Find max area contour
     _,contours, hierarchy = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
@@ -133,41 +172,188 @@ def findLegend(i, img):
         legend = cnt
         maxArea = cv2.contourArea(cnt)
     
-    # cv2.imwrite('mask.jpg', mask)
+    if legend == None:
+      print "legend not found"
+      return None
 
-    # height, width = mask.shape[:2]
-    # minX = 1000000
-    # minY = 1000000
-    # maxX = -1
-    # maxY = -1
-    # for y in range(0, height):
-    #   for x in range(0, width):
-    #       if mask[y][x]!=0:
-    #           minX = min(minX, x)
-    #           minY = min(minY, y)
-    #           maxX = max(maxX, x)
-    #           maxY = max(maxY, y)
-
-    # if not legend:
-    #   print "legend not found"
-    #   return None
-
-    # legend = [legend]
-    # cv2.drawContours(img, legend, -1, (0, 255, 0), 3 )
     x,y,w,h = cv2.boundingRect(legend)
     #crop legend
-    # legendImg = img[y:y+h, x:x+w]
-    # cv2.imwrite('legends/l'+str(i)+'.png', legendImg)
+    legendImg = img[y:y+h, x:x+w].copy()
+    square = containsRectangle(legendImg)
+    if square!=None:
+        x+=square[0][0]+8
+        y+=square[0][1]+8
+        w=square[2][0] - square[0][0] - 16
+        h=square[2][1] - square[0][1] - 16
 
     #Draw legend on img
-    cv2.rectangle(img,(x,y),(x+w,y+h),(0,255,0),3)
-    cv2.imwrite('legend'+str(i)+'.png', img)
+    # cv2.rectangle(img,(x,y),(x+w,y+h),(0,255,0),1)
+    # cv2.imwrite('legend'+str(i)+'.png', img)
 
-   
-    # legend = [[minX, minY], [minX, maxY], [maxX, maxY], [maxX, minY]]
-    # legend = np.array(legend, dtype=np.int32)
+    legendImg = img[y:y+h, x:x+w].copy()
+    offsetX, offsetY = x,y #save 
+    imgHSV = cv2.cvtColor(legendImg, cv2.COLOR_BGR2HSV)        
+    #black
+    lowerBlack = np.array([0, 0, 0], dtype=np.uint8)
+    upperBlack = np.array([180, 255, 10], dtype=np.uint8)
+    mask = cv2.inRange(imgHSV, lowerBlack, upperBlack)
+
+    # mask = cv2.erode(mask, kernel, iterations=1)
+    # kernel = np.ones((3,3),np.uint8)
+    # mask = cv2.dilate(mask, kernel, iterations=2)#dilate once in all directions
+    kernel = np.ones((1,3),np.uint8)
+    mask = cv2.dilate(mask, kernel, iterations=5)#dilate to join white pixels in legend
+    cv2.imwrite('horizontalmask'+str(i)+'.png', mask)
+
+    #Find max area contour
+    _,contours, hierarchy = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    labels = []
+    for cnt in contours:
+        cnt_len = cv2.arcLength(cnt, True)
+        cnt = cv2.approxPolyDP(cnt, 0.02*cnt_len, True)
+        x,y,w,h = cv2.boundingRect(cnt)
+        labels.append((x,y,x+w,y+h))
+
+    # for (x1,y1,x2,y2) in labels:
+    #     cv2.rectangle(legendImg,(x1,y1),(x2,y2),(0,255,0),1)
+
+    mergedLabels = []
+    for label in labels:
+        temp = []
+        mergedLabel = label
+        for m in mergedLabels:
+            if canMergeLabel(mergedLabel, m):
+                mergedLabel = mergeLabel(mergedLabel, m)
+            else:
+                temp.append(m)
+        temp.append(mergedLabel)
+        mergedLabels = temp
     
-    return legend
+    height, width = legendImg.shape[:2]
+    thresholdArea = height*width*(1.0/60.0) #1/60 of area
+    labels = []
+    for m in mergedLabels:
+        if (m[2]-m[0])*(m[3]-m[1]) > thresholdArea:
+            labels.append((m[0]+offsetX, m[1]+offsetY, m[2]+offsetX, m[3]+offsetY))#make label w.r.t plot
+
+    return labels
+
+def findColours(labels, img, i):
+    imgHSV = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+    height, width = img.shape[:2]
+    expansion = int(width*0.1)
+    colouredPixelThreshold = 20#all answers were more than 100
+
+    returnMap = {}
+    for index, label in enumerate(labels):
+        x1 = (label[0]+4*label[2])/5
+        x2 = min(label[2]+expansion, width-1)
+        # cv2.imwrite('label'+str(index)+'.png', img[label[1]:label[3], x1:x2])
+        temp = img[label[1]:label[3], x1:x2].copy()
+        mask = getLabelMask(temp)
+        
+        # cv2.imwrite('labelmask'+str(index)+'.png', mask)
+
+        mp = {}
+        h,w = mask.shape[:2]
+        for x in range(0, w):
+            for y in range(0, h):
+                if mask[y][x]!=0:#coloured
+                    hue = imgHSV[y+label[1]][x+x1][0]
+                    if hue not in mp:
+                        mp[hue] = 0
+                    mp[hue]+=1
+
+        maxCount = -1
+        maxHue = None
+        for hue in mp:
+            if mp[hue] > maxCount:
+                maxCount = mp[hue]
+                maxHue = hue
+        
+        if maxHue == None:
+            # print index
+            continue
+        sorted_mp = sorted(mp.items(), key=operator.itemgetter(1))
+        sorted_mp.reverse()
+        size = min(10, len(sorted_mp))
+        sorted_mp = sorted_mp[0:size]
+        mp2 = {}
+        for k1,v1 in sorted_mp:
+            ans=0
+            for k2,v2 in sorted_mp:
+                if k1-5<k2 and k2<k1+5:#nearby hue
+                    ans+=v2
+            mp2[k1] = ans
+
+        sorted_mp = sorted(mp2.items(), key=operator.itemgetter(1))
+        sorted_mp.reverse()
+        maxHue = sorted_mp[0][0]
+        maxCount = sorted_mp[0][1]
+            
+        # print maxHue, maxCount
+        if maxCount<colouredPixelThreshold:#no coloured line found to right
+            continue    
+
+        returnMap[index] = maxHue
+
+    if len(returnMap)!=0:
+        return returnMap
+
+
+    #look into left
+    for index, label in enumerate(labels):
+        x1 = max(0, label[0]-expansion)
+        x2 = (4*label[0]+label[2])/5
+        # cv2.imwrite('label'+str(i)+str(index)+'.png', img[label[1]:label[3], x1:x2])
+        temp = img[label[1]:label[3], x1:x2].copy()
+        mask = getLabelMask(temp)
+        
+        # cv2.imwrite('labelmask'+str(i)+str(index)+'.png', mask)
+
+        mp = {}
+        h,w = mask.shape[:2]
+        for x in range(0, w):
+            for y in range(0, h):
+                if mask[y][x]!=0:#coloured
+                    hue = imgHSV[y+label[1]][x+x1][0]
+                    if hue not in mp:
+                        mp[hue] = 0
+                    mp[hue]+=1
+
+        maxCount = -1
+        maxHue = None
+        for hue in mp:
+            if mp[hue] > maxCount:
+                maxCount = mp[hue]
+                maxHue = hue
+        
+        if maxHue == None:
+            # print index
+            continue        
+        sorted_mp = sorted(mp.items(), key=operator.itemgetter(1))
+        sorted_mp.reverse()
+        size = min(10, len(sorted_mp))
+        sorted_mp = sorted_mp[0:size]
+        mp2 = {}
+        for k1,v1 in sorted_mp:
+            ans=0
+            for k2,v2 in sorted_mp:
+                if k1-5<k2 and k2<k1+5:#nearby hue
+                    ans+=v2
+            mp2[k1] = ans
+
+        sorted_mp = sorted(mp2.items(), key=operator.itemgetter(1))
+        sorted_mp.reverse()
+        maxHue = sorted_mp[0][0]
+        maxCount = sorted_mp[0][1]
+        if maxCount<colouredPixelThreshold:#no coloured line found to right
+            continue    
+
+        returnMap[index] = maxHue
+        # cv2.imwrite('yoyo'+str(i)+'.png', img)
+
+    return returnMap
 
 def isBoundaryRectangle(r, imgArea):
     contourArea = cv2.contourArea(r)
@@ -202,6 +388,38 @@ def makeConventionalRectangles(rectangles):
     for rectangle in rectangles:
         conventionalRectangles.append(makeConventionalRectangle(rectangle))
     return conventionalRectangles
+
+def getLabelMask(img):
+    #returns mask for coloured pixels
+    imgHSV = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)        
+    #white
+    lowerWhite = np.array([0,0,0], dtype=np.uint8)
+    upperWhite = np.array([0,0,255], dtype=np.uint8)
+    maskWhite = cv2.inRange(imgHSV, lowerWhite, upperWhite)
+
+    #black
+    lowerBlack = np.array([0, 0, 0], dtype=np.uint8)
+    upperBlack = np.array([180, 255, 30], dtype=np.uint8)
+    maskBlack = cv2.inRange(imgHSV, lowerBlack, upperBlack)
+
+    mask = cv2.bitwise_or(maskWhite, maskBlack)
+    mask = cv2.bitwise_not(mask)
+
+    imgGRAY = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    lowerWhite = np.array([250], dtype=np.uint8)
+    upperWhite = np.array([255], dtype=np.uint8)
+    maskWhite = cv2.inRange(imgGRAY, lowerWhite, upperWhite)
+
+    lowerBlack = np.array([0], dtype=np.uint8)
+    upperBlack = np.array([5], dtype=np.uint8)
+    maskBlack = cv2.inRange(imgGRAY, lowerBlack, upperBlack)
+
+    mask1 = cv2.bitwise_or(maskWhite, maskBlack)
+    mask1 = cv2.bitwise_not(mask1)
+
+    mask = cv2.bitwise_and(mask, mask1)
+
+    return mask
 
 def getMask(img):
     #returns mask for coloured pixels
@@ -293,27 +511,35 @@ def mergeRectangles(rectangles, height, width):
 # print yo
 
 def isColoured(rectangle, mask):
-    minX = min(rectangle[0][0], rectangle[1][0])
-    maxX = max(rectangle[2][0], rectangle[3][0])
-    minY = min(rectangle[0][1], rectangle[3][1])
-    maxY = max(rectangle[1][1], rectangle[2][1])
+    x1,y1 = rectangle[0]
+    x2,y2 = rectangle[2]
+    croppedMask = mask[y1:y2, x1:x2].copy()
+    numColouredPixels = cv2.countNonZero(croppedMask)
+    colouredPixelThreshold = 50
+    if numColouredPixels>=colouredPixelThreshold:
+        return True
+    else:
+        return False
 
-    #optimization: intead of looking in complete rectangle
-    #look into a 20% width strip in middle of rectangle
-    stripWidth = int((maxX - minX)*0.1)
-    midX = (minX + maxX)/2
-    xStart = max(0, midX - stripWidth)
-    xEnd = min(maxX, midX + stripWidth)
+    # minX, minY = rectangle[0]
+    # maxX, maxY = rectangle[2]
+    
+    # #optimization: intead of looking in complete rectangle
+    # #look into a 20% width strip in middle of rectangle
+    # stripWidth = int((maxX - minX)*0.1)
+    # midX = (minX + maxX)/2
+    # xStart = max(0, midX - stripWidth)
+    # xEnd = min(maxX, midX + stripWidth)
 
-    numColouredPixels = 0 #avoid stray coloured pixels inside tables
-    colouredPixelThreshold = 10
-    for x in range(xStart, xEnd+1):
-        for y in range(minY, maxY+1):
-            if mask[y][x]!=0:#coloured pixel
-                numColouredPixels += 1
-                if numColouredPixels >= colouredPixelThreshold:
-                    return True
-    return False #not coloured
+    # numColouredPixels = 0 #avoid stray coloured pixels inside tables
+    # colouredPixelThreshold = 10#less because only in strip
+    # for x in range(xStart, xEnd+1):
+    #     for y in range(minY, maxY+1):
+    #         if mask[y][x]!=0:#coloured pixel
+    #             numColouredPixels += 1
+    #             if numColouredPixels >= colouredPixelThreshold:
+    #                 return True
+    # return False #not coloured
 
 def getColouredRectangles(rectangles, mask):
     colouredRectangles = []
@@ -350,16 +576,15 @@ if __name__ == '__main__':
             maxY -= 15
             plot = img[minY:maxY, minX:maxX]
             plotCopy = plot.copy()
-            legend = findLegend(i, plotCopy)
-            # minX, minY = legend[0]
-            # maxX, maxY = legend[2]
-            # legend = plot[minY:maxY, minX:maxX]
-            # legend = cv2.cvtColor(legend, cv2.COLOR_BGR2GRAY)
-            # _,contours, hierarchy = cv2.findContours(legend, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-            # print len(contours)
-            # cv2.drawContours(legend, contours, -1, (0, 255, 0), 3)
-            # cv2.imwrite('legend' + str(i) + '.png', legend)
-            
+            labels = findLabels(i, plotCopy)
+            if labels == None:#could not find legend
+                #TODO:error handling
+                print "legend not found"
+                continue
+            plotCopy = plot.copy()
+            labelsCopy = copy.copy(labels)
+            colours = findColours(labelsCopy, plotCopy, i)
+            print colours            
         
         cv2.drawContours(img, rectangles, -1, (0, 255, 0), 3 )
         cv2.imwrite('rectangles.png', img)
