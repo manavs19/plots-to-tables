@@ -18,6 +18,7 @@ import copy
 from bfs import BFS
 from pdfManager import PDFManager
 import operator
+from axisOcr import OCR
 
 def angle_cos(p0, p1, p2):
     d1, d2 = (p0-p1).astype('float'), (p2-p1).astype('float')
@@ -95,6 +96,385 @@ def findRectangles(img):
         #   if max_cos < 0.1:
         #       squares.append(cnt)
     return squares
+
+def findXScale(img, rectangle, i):
+    minX, minY = rectangle[0]
+    maxX, maxY = rectangle[2]
+    h,w = maxY-minY, maxX-minX
+    cropped = img[int(maxY+0.01*h):int(maxY+0.1*h), minX:maxX].copy()
+    cc = cropped.copy()
+    
+    cropped = cv2.cvtColor(cc, cv2.COLOR_BGR2GRAY)
+    _,cropped = cv2.threshold(cropped, 250, 255, 1)
+
+    kernel = np.ones((1,3),np.uint8)
+    cropped = cv2.dilate(cropped, kernel, iterations=2)#dilate to get numbers
+    _,contours, hierarchy = cv2.findContours(cropped, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    # print len(contours)
+    # cv2.drawContours(cropped, contours, -1, (127), 3 )
+    h,w = cropped.shape[:2]
+    thresholdArea = h*w*0.01
+    numbers = []
+    for cnt in contours:
+        if len(cnt)<4:
+            continue
+        box = cv2.boundingRect(cnt)
+        # contourArea = cv2.contourArea(cnt)
+        contourArea = box[2]*box[3]
+        if contourArea < thresholdArea:
+            continue
+        # print contourArea, thresholdArea
+        numbers.append(box)
+        # cv2.rectangle(cc,(box[0],box[1]),(box[0]+box[2],box[1]+box[3]),(127),1)
+
+    # print len(numbers)
+
+    mp = {}
+    for number in numbers:
+        centerY = number[1] + number[3]/2
+        if centerY not in mp:
+            mp[centerY]=0
+        mp[centerY]+=1
+
+    mp2 = {}
+    for k,v in mp.iteritems():
+        mp2[k] = 0
+        for k2 in range(k-5, k+6):
+            if k2 in mp:
+                mp2[k] += mp[k]
+
+    sorted_mp = sorted(mp2.items(), key=operator.itemgetter(1))
+    sorted_mp.reverse()
+
+    maxCenter = sorted_mp[0][0]
+    # print sorted_mp[0]
+
+    temp = []
+
+    for number in numbers:
+        numCenter = number[1] + number[3]/2
+        if maxCenter - 5 <= numCenter and numCenter <= maxCenter + 5:
+            # cv2.rectangle(cc,(number[0],number[1]),(number[0]+number[2],number[1]+number[3]),(127),1)
+            temp.append(number)
+    # cv2.imwrite('cropped'+str(i)+'.png', cc)
+
+    numbers = temp
+    #find lowest point of number boxes
+    mx = -1
+    for number in numbers:
+        mx = max(mx, number[1]+number[3])
+    mx += 0.01*(maxY-minY)
+
+    # print len(numbers)
+    centerX = []
+    for number in numbers:
+        center = number[0] + number[2]/2
+        centerX.append(center)
+    centerX = sorted(centerX)
+    scale = 100000000
+    for var in range(0, len(centerX)-1):
+        diff = centerX[var+1] - centerX[var]
+        scale = min(scale, diff)
+
+    scale += 18#compensation
+    # print scale
+
+    mp = {}
+    for number in numbers:
+        numberCropped = cc[number[1]:number[1]+number[3], number[0]:number[0]+number[2]].copy()
+        cv2.imwrite("/tmp/x.png", numberCropped)
+        try:
+            num = OCR().XaxisData()
+            if len(num)==0:
+                continue
+            num = num[0]
+            if len(num)==0:
+                continue
+            data = float(num[0])#is a number
+            position = number[0] + number[2]/2
+            mp[data] = position            
+        except:
+            continue
+
+    if len(mp)<2:#could not find 2 numbers
+        print "could not find 2 numbers"
+        return scale, mx
+    sorted_mp = sorted(mp.items(), key=operator.itemgetter(0))
+    leastCount = 100000000
+    store = None
+    for var in range(0, len(sorted_mp)-1):
+        if sorted_mp[var+1][0] - sorted_mp[var][0] < leastCount:
+            leastCount = sorted_mp[var+1][0] - sorted_mp[var][0]
+            store = var
+    pixelDiff = sorted_mp[store+1][1] - sorted_mp[store][1]
+    divisionsInBetween = round(pixelDiff/float(scale))
+    delta = float(leastCount)/divisionsInBetween#1
+    xStart = sorted_mp[store][0] - round(sorted_mp[store][1]/float(scale))*delta#0
+
+    #scale is number of pixels in a division
+    #xStart is actual start value
+    #delta is the actual difference between 2 consecutive values
+    return scale, mx, xStart, delta
+
+def findYScale(img, rectangle, i):
+    minX, minY = rectangle[0]
+    maxX, maxY = rectangle[2]
+    h,w = maxY-minY, maxX-minX
+    cropped = img[minY:maxY, int(minX-0.1*w):int(minX-0.01*w)].copy()
+    cc = cropped.copy()
+    
+    cropped = cv2.cvtColor(cc, cv2.COLOR_BGR2GRAY)
+    _,cropped = cv2.threshold(cropped, 250, 255, 1)
+
+    kernel = np.ones((1,3),np.uint8)
+    cropped = cv2.dilate(cropped, kernel, iterations=2)#dilate to get numbers
+    _,contours, hierarchy = cv2.findContours(cropped, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    # print len(contours)
+    # cv2.drawContours(cropped, contours, -1, (127), 3 )
+    h,w = cropped.shape[:2]
+    thresholdArea = h*w*0.01
+    numbers = []
+    for cnt in contours:
+        if len(cnt)<4:
+            continue
+        box = cv2.boundingRect(cnt)
+        # contourArea = cv2.contourArea(cnt)
+        contourArea = box[2]*box[3]
+        if contourArea < thresholdArea:
+            continue
+        # print contourArea, thresholdArea
+        numbers.append(box)
+        # cv2.rectangle(cc,(box[0],box[1]),(box[0]+box[2],box[1]+box[3]),(127),1)
+
+    # print len(numbers)
+
+    mp = {}
+    for number in numbers:
+        centerX = number[0] + number[2]/2
+        if centerX not in mp:
+            mp[centerX]=0
+        mp[centerX]+=1
+
+    mp2 = {}
+    for k,v in mp.iteritems():
+        mp2[k] = 0
+        for k2 in range(k-5, k+6):
+            if k2 in mp:
+                mp2[k] += mp[k]
+
+    sorted_mp = sorted(mp2.items(), key=operator.itemgetter(1))
+    sorted_mp.reverse()
+
+    maxCenter = sorted_mp[0][0]
+    # print sorted_mp[0]
+
+    temp = []
+
+    for number in numbers:
+        numCenter = number[0] + number[2]/2
+        if maxCenter - 5 <= numCenter and numCenter <= maxCenter + 5:
+            # cv2.rectangle(cc,(number[0],number[1]),(number[0]+number[2],number[1]+number[3]),(127),1)
+            temp.append(number)
+    # cv2.imwrite('cropped'+str(i)+'.png', cc)
+    numbers = temp
+    mx = 100000000
+    for number in numbers:
+        mx = min(mx, number[0])
+    
+    # print len(numbers)
+    centerY = []
+    for number in numbers:
+        center = number[1] + number[3]/2
+        centerY.append(center)
+    centerY = sorted(centerY)
+    scale = 100000000
+    for var in range(0, len(centerY)-1):
+        diff = centerY[var+1] - centerY[var]
+        scale = min(scale, diff)
+
+    scale += 18#compensation
+    # print scale
+
+    mp = {}
+    for number in numbers:
+        numberCropped = cc[number[1]:number[1]+number[3], number[0]:number[0]+number[2]].copy()
+        cv2.imwrite("/tmp/y.png", numberCropped)
+        try:
+            num = OCR().YaxisData()
+            if len(num)==0:
+                continue
+            num = num[0]
+            if len(num)==0:
+                continue
+            data = float(num[0])#is a number
+            # print data
+            position = number[1] + number[3]/2
+            mp[data] = position            
+        except:
+            continue
+
+    if len(mp)<2:#could not find 2 numbers
+        print "could not find 2 numbers"
+        return scale, mx
+    sorted_mp = sorted(mp.items(), key=operator.itemgetter(0))
+    leastCount = 100000000
+    store = None
+    for var in range(0, len(sorted_mp)-1):
+        if sorted_mp[var+1][0] - sorted_mp[var][0] < leastCount:
+            leastCount = sorted_mp[var+1][0] - sorted_mp[var][0]
+            store = var
+    # print sorted_mp[store][0], sorted_mp[store+1][0]
+    pixelDiff = sorted_mp[store][1] - sorted_mp[store+1][1]
+    divisionsInBetween = round(pixelDiff/float(scale))
+    delta = float(leastCount)/divisionsInBetween#1
+    yStart = sorted_mp[store][0] - round((h-sorted_mp[store][1])/float(scale))*delta#0
+
+    #scale is number of pixels in a division
+    #xStart is actual start value
+    #delta is the actual difference between 2 consecutive values
+    return scale, mx, yStart, delta
+
+def findPlotName(img, rectangle, i, mx=0):
+    minX, minY = rectangle[0]
+    maxX, maxY = rectangle[2]
+    h,w = maxY-minY, maxX-minX
+
+    imgH, imgW = img.shape[:2]
+
+    #first we search below
+    cropped = img[min(int(maxY+mx), imgH-1):min(int(maxY+h*0.35), imgH-1), int(minX-0.05*w):maxX].copy()
+    cc = cropped.copy()
+
+    cropped = cv2.cvtColor(cc, cv2.COLOR_BGR2GRAY)
+    _,cropped = cv2.threshold(cropped, 250, 255, 1)
+
+    kernel = np.ones((3,3),np.uint8)
+    cropped = cv2.dilate(cropped, kernel, iterations=10)#dilate to get numbers
+    _,contours, hierarchy = cv2.findContours(cropped, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    print len(contours)
+    
+    maxArea = -1
+    plotName = None
+    h,w = cc.shape[:2]
+    areaThreshold = 0.05 * h * w
+    for cnt in contours:
+        box = cv2.boundingRect(cnt)
+        contourArea = box[2]*box[3]
+
+        if contourArea < areaThreshold:
+            continue
+
+        if contourArea > maxArea:
+            maxArea = contourArea
+            plotName = box
+
+    if plotName == None:
+        #first we search below
+        h,w = maxY-minY, maxX-minX
+        cropped = img[max(int(minY-h*0.20), 0):minY, int(minX-0.05*w):maxX].copy()
+        cc = cropped.copy()
+
+        cropped = cv2.cvtColor(cc, cv2.COLOR_BGR2GRAY)
+        _,cropped = cv2.threshold(cropped, 250, 255, 1)
+
+        kernel = np.ones((3,3),np.uint8)
+        cropped = cv2.dilate(cropped, kernel, iterations=10)#dilate to get numbers
+        _,contours, hierarchy = cv2.findContours(cropped, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        # cv2.drawContours(cropped, contours, -1, (127), 3 )
+        # cv2.imwrite('yoyo'+str(i)+'.png', cropped)
+        print "lenyy=",len(contours)
+        
+        maxArea = -1
+        h,w = cc.shape[:2]
+        areaThreshold = 0.01 * h * w
+        for cnt in contours:
+            box = cv2.boundingRect(cnt)
+            contourArea = box[2]*box[3]
+
+            if contourArea < areaThreshold:
+                continue
+
+            if contourArea > maxArea:
+                maxArea = contourArea
+                plotName = box
+
+    if plotName != None:
+    # cv2.rectangle(cc,(plotName[0],plotName[1]),(plotName[0] + plotName[2],plotName[1] + plotName[3]),(0,255,0),1)
+    # cv2.imwrite('plotName' + str(i) + '.png', cc)
+        plotName = cc[plotName[1]:plotName[1]+plotName[3], plotName[0]:plotName[0]+plotName[2]]
+        cv2.imwrite('plotName' + str(i) + '.png', plotName)
+
+    # print plotName
+    return plotName
+
+def findXLabel(img, rectangle, mx, i):
+    #returns image object reprsenting the x label
+    minX, minY = rectangle[0]
+    maxX, maxY = rectangle[2]
+    h,w = maxY-minY, maxX-minX
+    cropped = img[int(maxY+mx):int(maxY+0.2*h), int(minX+0.1*w):int(maxX-0.1*w)].copy()
+    cc = cropped.copy()
+
+    cropped = cv2.cvtColor(cc, cv2.COLOR_BGR2GRAY)
+    _,cropped = cv2.threshold(cropped, 250, 255, 1)
+
+    kernel = np.ones((1,3),np.uint8)
+    cropped = cv2.dilate(cropped, kernel, iterations=10)#dilate to get numbers
+    _,contours, hierarchy = cv2.findContours(cropped, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    
+    topY = 100000000
+    xLabel = None
+    h,w = cc.shape[:2]
+    thresholdArea = 0.01*h*w
+    for cnt in contours:
+        box = cv2.boundingRect(cnt)
+        contourArea = box[2]*box[3]
+        if contourArea < thresholdArea:
+            continue
+        if (box[1]+box[3]/2) < topY:
+            topY = box[1]+box[3]/2
+            xLabel = box
+
+    # cv2.rectangle(cc,(xLabel[0],xLabel[1]),(xLabel[0] + xLabel[2],xLabel[1] + xLabel[3]),(0,255,0),1)
+    # cv2.imwrite('xLabel' + str(i) + '.png', cc)
+    mx = xLabel[1]+xLabel[3] + mx
+    xLabel = cc[xLabel[1]:xLabel[1]+xLabel[3], xLabel[0]:xLabel[0]+xLabel[2]]
+    cv2.imwrite('xLabel' + str(i) + '.png', xLabel)
+    return xLabel, mx
+
+def findYLabel(img, rectangle, mx, i):
+    #returns image object reprsenting the y label
+    minX, minY = rectangle[0]
+    maxX, maxY = rectangle[2]
+    h,w = maxY-minY, maxX-minX
+    cropped = img[int(minY+0.1*h):int(maxY-0.1*h), max(0, int(minX - 0.2*w)):max(0, int(minX-0.1*w+mx))].copy()
+    cc = cropped.copy()
+
+    # cv2.imwrite('cropped'+str(i)+'.png', cropped)
+
+    cropped = cv2.cvtColor(cc, cv2.COLOR_BGR2GRAY)
+    _,cropped = cv2.threshold(cropped, 250, 255, 1)
+
+    kernel = np.ones((3,1),np.uint8)
+    cropped = cv2.dilate(cropped, kernel, iterations=10)#dilate to get numbers
+    _,contours, hierarchy = cv2.findContours(cropped, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    
+    yLabel = None
+    maxArea = -1
+    for cnt in contours:
+        box = cv2.boundingRect(cnt)
+        contourArea = box[2]*box[3]
+        if contourArea > maxArea:
+            maxArea = contourArea
+            yLabel = box
+
+    # cv2.rectangle(cc,(yLabel[0],yLabel[1]),(yLabel[0] + yLabel[2],yLabel[1] + yLabel[3]),(0,255,0),1)
+    # cv2.imwrite('yyLabel' + str(i) + '.png', cc)
+    if yLabel != None:
+        yLabel = cc[yLabel[1]:yLabel[1]+yLabel[3], yLabel[0]:yLabel[0]+yLabel[2]].copy()
+        yLabel = np.rot90(yLabel, 3)
+        cv2.imwrite('yLabel' + str(i) + '.png', yLabel)
+    return yLabel
 
 def containsRectangle(img):
     img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
@@ -568,23 +948,62 @@ if __name__ == '__main__':
         print "coloured rectangles = ", len(rectangles)
 
         for i, rectangle in enumerate(rectangles):
-            minX, minY = rectangle[0]
-            maxX, maxY = rectangle[2]
-            minX += 15
-            minY += 15
-            maxX -= 15
-            maxY -= 15
-            plot = img[minY:maxY, minX:maxX]
-            plotCopy = plot.copy()
-            labels = findLabels(i, plotCopy)
-            if labels == None:#could not find legend
-                #TODO:error handling
-                print "legend not found"
-                continue
-            plotCopy = plot.copy()
-            labelsCopy = copy.copy(labels)
-            colours = findColours(labelsCopy, plotCopy, i)
-            print colours            
+            ret = findXScale(img.copy(), rectangle, i)#ret/10 reduces arror a lot
+            xLabel, mx = findXLabel(img.copy(), rectangle, ret[1], i)
+            xScale = ret[0]
+            xStart = None
+            xDelta = None
+            if len(ret)==2:#scale,mx
+                #TODO:
+                print "The OCR engine could not recognize the x-axis markings."
+                print "Enter the starting x value:"
+                # xStart = float(raw_input())
+                print "Enter the x axis division:"
+                # xDelta = float(raw_input())
+            else:#scale,mx,xStart,delta
+                xStart = ret[2]
+                xDelta = ret[3]
+
+
+            #do for y axis
+            ret = findYScale(img.copy(), rectangle, i)#ret/10 reduces arror a lot
+            yLabel = findYLabel(img.copy(), rectangle, ret[1], i)
+            yScale = ret[0]
+            yStart = None
+            yDelta = None
+            if len(ret)==2:#scale,mx
+                #TODO:
+                pass
+                print "The OCR engine could not recognize the y-axis markings."
+                print "Enter the starting y value:"
+                # yStart = float(raw_input())
+                print "Enter the y axis division:"
+                # yDelta = float(raw_input())
+            else:#scale,mx,xStart,delta
+                yStart = ret[2]
+                yDelta = ret[3]
+
+            plotName = findPlotName(img.copy(), rectangle, i, mx)
+
+
+        # for i, rectangle in enumerate(rectangles):
+        #     minX, minY = rectangle[0]
+        #     maxX, maxY = rectangle[2]
+        #     minX += 15
+        #     minY += 15
+        #     maxX -= 15
+        #     maxY -= 15
+        #     plot = img[minY:maxY, minX:maxX]
+        #     plotCopy = plot.copy()
+        #     labels = findLabels(i, plotCopy)
+        #     if labels == None:#could not find legend
+        #         #TODO:error handling
+        #         print "legend not found"
+        #         continue
+        #     plotCopy = plot.copy()
+        #     labelsCopy = copy.copy(labels)
+        #     colours = findColours(labelsCopy, plotCopy, i)
+        #     print colours            
         
         cv2.drawContours(img, rectangles, -1, (0, 255, 0), 3 )
         cv2.imwrite('rectangles.png', img)
