@@ -11,7 +11,7 @@ class YAxis:
   def __init__(self, img):
     self.img = img
 
-  def findYScale(self, rectangle, i):
+  def findYScale(self, rectangle, i, no_interrupt):
     img = self.img.copy()
 
     minX, minY = rectangle[0]
@@ -107,7 +107,11 @@ class YAxis:
         continue
 
     if len(mp)<2:#could not find 2 numbers
-      yStart, yDelta = self.handle_ocr_failure(rectangle, img)
+      if no_interrupt:
+        yStart = 0
+        yDelta = scale
+      else:
+        yStart, yDelta = self.handle_ocr_failure(rectangle, img)
       return scale, mx, yStart, yDelta
 
     sorted_mp = sorted(mp.items(), key=operator.itemgetter(0))
@@ -149,10 +153,21 @@ class YAxis:
     cv2.waitKey(0)
     cv2.destroyWindow(WINDOW_NAME)
 
-    print "Enter the starting y value:"
-    yStart = float(raw_input())
-    print "Enter the y axis division:"
-    yDelta = float(raw_input())
+    while True:
+      try:
+        print "Enter the starting y value:"
+        yStart = float(raw_input())
+        break
+      except ValueError:
+        print "Enter valid y value"
+
+    while True:
+      try:
+        print "Enter the y axis division:"
+        yDelta = float(raw_input())
+        break
+      except ValueError:
+        print "Enter valid y axis division value"
 
     return yStart, yDelta
 

@@ -11,7 +11,7 @@ class XAxis:
   def __init__(self, img):
     self.img = img
 
-  def findXScale(self, rectangle, i):
+  def findXScale(self, rectangle, i, no_interrupt):
     img = self.img.copy()
 
     minX, minY = rectangle[0]
@@ -106,7 +106,11 @@ class XAxis:
         continue
 
     if len(mp)<2: #could not find 2 numbers
-      xStart, xDelta = self.handle_ocr_failure(rectangle, img)
+      if no_interrupt:
+        xStart = 0
+        xDelta = scale
+      else:
+        xStart, xDelta = self.handle_ocr_failure(rectangle, img)
       return scale, mx, xStart, xDelta
 
     sorted_mp = sorted(mp.items(), key=operator.itemgetter(0))
@@ -150,10 +154,21 @@ class XAxis:
     cv2.waitKey(0)
     cv2.destroyWindow(WINDOW_NAME)
 
-    print "Enter the starting x value:"
-    xStart = float(raw_input())
-    print "Enter the x axis division:"
-    xDelta = float(raw_input())
+    while True:
+      try:
+        print "Enter the starting y value:"
+        yStart = float(raw_input())
+        break
+      except ValueError:
+        print "Enter valid y value"
+
+    while True:
+      try:
+        print "Enter the y axis division:"
+        yDelta = float(raw_input())
+        break
+      except ValueError:
+        print "Enter valid y axis division value"
 
     return xStart, xDelta
 

@@ -72,4 +72,7 @@ class PdfGen:
     self.elements.append(PageBreak())
     
   def print_file(self):
-    self.doc.build(self.elements)
+    try:
+      self.doc.build(self.elements)
+    except:
+      print "Could not generate output pdf" 

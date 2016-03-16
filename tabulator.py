@@ -15,7 +15,7 @@ from yAxis import YAxis
 from plotname import PlotName
 from legends import Legends
 from pdfGen import PdfGen
-import os
+from data import Data
 
 parser = argparse.ArgumentParser(
   description='Computes data from the plots in the given PDF')
@@ -23,6 +23,8 @@ parser = argparse.ArgumentParser(
 parser.add_argument('--inp', type=str, help='Path of the input pdf')
 parser.add_argument('--out', type=str, help='Path of the output pdf')
 parser.add_argument('--csv', type=bool, default=False, help='True if data to be written in csv format also')
+parser.add_argument('--no_interrupt', type=bool, default=False, help='True if user does not want to enter text recognition data if OCR fails.\
+  In that case, values shall be given in terms of pixels')
 
 def main():
   args = parser.parse_args()
@@ -44,13 +46,13 @@ def main():
       x2,y2 = rectangle[2]
       cv2.imwrite(plotFilename, img[y1:y2, x1:x2].copy())
 
-      ret = x_axis.findXScale(rectangle, i)
+      ret = x_axis.findXScale(rectangle, i, args.no_interrupt)
       xLabelPath, mx = x_axis.findXLabel(rectangle, ret[1], i)
       xScale = ret[0]
       xStart = ret[2]
       xDelta = ret[3]
 
-      ret = y_axis.findYScale(rectangle, i)
+      ret = y_axis.findYScale(rectangle, i, args.no_interrupt)
       yLabelPath = y_axis.findYLabel(rectangle, ret[1], i)
       yScale = ret[0]
       yStart = ret[2]
@@ -61,21 +63,7 @@ def main():
       legends = Legends(rectangle, img)
       legendItemImagePaths, colorMap = legends.getLegend(i)
       
-      extractedDatafile = '/tmp/extractedDatafile.txt'
-      extractCommand = './dataExtractor ' + plotFilename +  " " + extractedDatafile + " "
-      extractCommand += str(xStart) + " "
-      extractCommand += str(xDelta) + " "
-      extractCommand += str(xScale) + " " 
-      for k,v in colorMap.iteritems():
-        extractCommand += str(v) + " "
-
-      os.system(extractCommand)
-      data = []
-      with open(extractedDatafile, 'r') as fin:
-        for line in fin:
-          line = line.strip().split()
-          line = map(float, line)
-          data.append(line)
+      data = Data().getData(plotFilename, xStart, xDelta, xScale, yStart, yDelta, yScale, colorMap)
 
       table_headers = [xLabelPath] + legendItemImagePaths
       pdf_gen.add_table(plotNamePath, yLabelPath, table_headers, data)
