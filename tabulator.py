@@ -35,7 +35,11 @@ def main():
     print "\nNo input file found, please check input path\n"
     exit(1)
 
-  for fn in fns:
+  pdf_gen = PdfGen(args.out, args.csv)
+
+  for index, fn in enumerate(fns):
+    pdf_gen.writePdfName(fn)
+
     img = Converter().convertPDF(fn)
 
     rectangles = PlotRectangles().getRectangles(img)
@@ -43,7 +47,7 @@ def main():
     x_axis = XAxis(img.copy())
     y_axis = YAxis(img.copy())
     plot_name = PlotName(img.copy())
-    pdf_gen = PdfGen(args.out, args.csv)
+    
 
     #iterating over tables
     for i, rectangle in enumerate(rectangles):
@@ -57,7 +61,7 @@ def main():
       except:
         ret = [100, 10, 0, 100]
 
-      xLabelPath, mx = x_axis.findXLabel(rectangle, ret[1], i)
+      xLabelPath, mx = x_axis.findXLabel(rectangle, ret[1], i, index)
       xScale = ret[0]
       xStart = ret[2]
       xDelta = ret[3]
@@ -67,22 +71,22 @@ def main():
       except:
         ret = [100, 10, 0, 100]
 
-      yLabelPath = y_axis.findYLabel(rectangle, ret[1], i)
+      yLabelPath = y_axis.findYLabel(rectangle, ret[1], i, index)
       yScale = ret[0]
       yStart = ret[2]
       yDelta = ret[3]
 
-      plotNamePath = plot_name.getPlotName(rectangle, i, mx)
+      plotNamePath = plot_name.getPlotName(rectangle, i, index, mx)
 
       legends = Legends(rectangle, img)
-      legendItemImagePaths, colorMap = legends.getLegend(i)
+      legendItemImagePaths, colorMap = legends.getLegend(i, index)
       
       data = Data().getData(plotFilename, xStart, xDelta, xScale, yStart, yDelta, yScale, colorMap)
 
       table_headers = [xLabelPath] + legendItemImagePaths
       pdf_gen.add_table(plotNamePath, yLabelPath, table_headers, data)
 
-    pdf_gen.print_file()
+  pdf_gen.print_file()
 
 if __name__ == '__main__':
   main()

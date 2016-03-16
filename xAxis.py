@@ -172,7 +172,7 @@ class XAxis:
 
     return xStart, xDelta
 
-  def findXLabel(self, rectangle, mx, i):
+  def findXLabel(self, rectangle, mx, i, index):
     img = self.img.copy()
     
     minX, minY = rectangle[0]
@@ -207,7 +207,7 @@ class XAxis:
     mx = xLabel[1]+xLabel[3] + mx
     xLabel = cc[xLabel[1]:xLabel[1]+xLabel[3], xLabel[0]:xLabel[0]+xLabel[2]]
 
-    xLabelPath = '/tmp/xlabel' + str(i) + '.png'
+    xLabelPath = '/tmp/xlabel' + str(i) + '_' + str(index) + '.png'
     cv2.imwrite(xLabelPath, xLabel)
 
     return xLabelPath, mx

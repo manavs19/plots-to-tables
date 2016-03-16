@@ -171,7 +171,7 @@ class YAxis:
 
     return yStart, yDelta
 
-  def findYLabel(self, rectangle, mx, i):
+  def findYLabel(self, rectangle, mx, i, index):
     img = self.img.copy()
 
     minX, minY = rectangle[0]
@@ -201,7 +201,7 @@ class YAxis:
       yLabel = cc[yLabel[1]:yLabel[1]+yLabel[3], yLabel[0]:yLabel[0]+yLabel[2]].copy()
       yLabel = np.rot90(yLabel, 3)
 
-    yLabelPath = '/tmp/ylabel' + str(i) + '.png'
+    yLabelPath = '/tmp/ylabel' + str(i) + '_' + str(index) + '.png'
     cv2.imwrite(yLabelPath, yLabel)
 
     return yLabelPath

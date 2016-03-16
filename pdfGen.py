@@ -23,6 +23,14 @@ class PdfGen:
     self.elements.append(Spacer(100, 220))
     self.elements.append(Paragraph(teamText, styleSheet["Normal"]))
     self.elements.append(PageBreak())
+
+  def writePdfName(self, pdfName):
+    self.elements.append(Spacer(100, 220))
+    pdftext = '<center><font size=36><u>' + pdfName + '</u></font></center>'
+    styleSheet = getSampleStyleSheet()
+    styleSheet.add(ParagraphStyle(name='Center', alignment=TA_JUSTIFY))
+    self.elements.append(Paragraph(pdftext, styleSheet["Normal"]))
+    self.elements.append(PageBreak())
     
   def exportAsCsv(self, values):
     csvFile = str(self.tableCount) + '.csv'

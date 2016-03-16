@@ -5,7 +5,7 @@ class PlotName:
   def __init__(self, img):
     self.img = img
 
-  def getPlotName(self, rectangle, i, mx=0):
+  def getPlotName(self, rectangle, i, index, mx=0):
     img = self.img
 
     minX, minY = rectangle[0]
@@ -70,7 +70,7 @@ class PlotName:
     if plotName != None:
       plotName = cc[plotName[1]:plotName[1]+plotName[3], plotName[0]:plotName[0]+plotName[2]]
 
-    plotNamePath = '/tmp/plotName' + str(i) + '.png'
+    plotNamePath = '/tmp/plotName' + str(i) + '_' + str(index) + '.png'
     cv2.imwrite(plotNamePath, plotName)
 
     return plotNamePath

@@ -17,7 +17,7 @@ class Legends:
 
     self.plot = img[minY:maxY, minX:maxX].copy()
 
-  def getLegend(self, i):
+  def getLegend(self, i, index):
     labels = self.findLabels(i)
 
     if labels == None:
@@ -27,17 +27,17 @@ class Legends:
     labelsCopy = copy.copy(labels)
     colourMap = self.findColours(labelsCopy, i)
     
-    labelImagePaths = self.findLabelImagePaths(labels, colourMap, i)
+    labelImagePaths = self.findLabelImagePaths(labels, colourMap, i, index)
 
     return labelImagePaths, colourMap
 
-  def findLabelImagePaths(self, labels, colourMap, i):
+  def findLabelImagePaths(self, labels, colourMap, i, findex):
     labelImagePaths = []
 
     for index, label in enumerate(labels):
       if index in colourMap:
         labelImage = self.plot[label[1]:label[3], label[0]:label[2]].copy()
-        labelImagePath = '/tmp/legend' + str(index) + '_' + str(i) + '.png'
+        labelImagePath = '/tmp/legend' + str(index) + '_' + str(i) + '_' + str(findex) + '.png'
         cv2.imwrite(labelImagePath, labelImage)
         labelImagePaths.append(labelImagePath)
 
