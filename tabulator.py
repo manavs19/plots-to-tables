@@ -22,7 +22,7 @@ parser = argparse.ArgumentParser(
 
 parser.add_argument('--inp', type=str, help='Path of the input pdf')
 parser.add_argument('--out', type=str, help='Path of the output pdf')
-parser.add_argument('--csv', type=bool, default=False, help='True if data to be written in csv format also')
+parser.add_argument('--csv', type=str, default=None, help='If provided, csv data is also written in this folder')
 parser.add_argument('--no_interrupt', type=bool, default=False, help='True if user does not want to enter text recognition data if OCR fails.\
   In that case, values shall be given in terms of pixels')
 

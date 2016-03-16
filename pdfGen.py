@@ -4,9 +4,11 @@ from reportlab.lib.pagesizes import letter, inch
 from reportlab.platypus import Image, Paragraph, SimpleDocTemplate, Table, PageBreak, Spacer
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 
+import os
+
 class PdfGen:
   
-  def __init__(self, filename, csv=False):
+  def __init__(self, filename, csv):
     self.filename = filename
     self.elements = []
     self.doc = SimpleDocTemplate(self.filename, pagesize=letter)
@@ -33,7 +35,12 @@ class PdfGen:
     self.elements.append(PageBreak())
     
   def exportAsCsv(self, values):
-    csvFile = str(self.tableCount) + '.csv'
+    folders = [name for name in os.listdir(".") if os.path.isdir(name)]
+
+    if self.csv not in folders:
+      os.mkdir(self.csv)
+
+    csvFile = self.csv + '/' + str(self.tableCount) + '.csv'
     f = open(csvFile, 'w')
     for value in values:
       line=''
@@ -84,7 +91,7 @@ class PdfGen:
     
     self.elements.append(t)
     
-    if self.csv == True:
+    if self.csv != None:
       csvFile = self.exportAsCsv(values)
       ptext = '<font size=24>CSV exported to %s</font>' % csvFile
       self.elements.append(Paragraph(ptext, styleSheet["Normal"]))
