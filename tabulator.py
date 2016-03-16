@@ -40,51 +40,55 @@ def main():
   for index, fn in enumerate(fns):
     pdf_gen.writePdfName(fn)
 
-    img = Converter().convertPDF(fn)
+    try:
+      img = Converter().convertPDF(fn)
 
-    rectangles = PlotRectangles().getRectangles(img)
+      rectangles = PlotRectangles().getRectangles(img)
 
-    x_axis = XAxis(img.copy())
-    y_axis = YAxis(img.copy())
-    plot_name = PlotName(img.copy())
-    
-
-    #iterating over tables
-    for i, rectangle in enumerate(rectangles):
-      plotFilename = '/tmp/plot.png'
-      x1,y1 = rectangle[0]
-      x2,y2 = rectangle[2]
-      cv2.imwrite(plotFilename, img[y1:y2, x1:x2].copy())
-
-      try:
-        ret = x_axis.findXScale(rectangle, i, args.no_interrupt)
-      except:
-        ret = [100, 10, 0, 100]
-
-      xLabelPath, mx = x_axis.findXLabel(rectangle, ret[1], i, index)
-      xScale = ret[0]
-      xStart = ret[2]
-      xDelta = ret[3]
-
-      try:
-        ret = y_axis.findYScale(rectangle, i, args.no_interrupt)
-      except:
-        ret = [100, 10, 0, 100]
-
-      yLabelPath = y_axis.findYLabel(rectangle, ret[1], i, index)
-      yScale = ret[0]
-      yStart = ret[2]
-      yDelta = ret[3]
-
-      plotNamePath = plot_name.getPlotName(rectangle, i, index, mx)
-
-      legends = Legends(rectangle, img)
-      legendItemImagePaths, colorMap = legends.getLegend(i, index)
+      x_axis = XAxis(img.copy())
+      y_axis = YAxis(img.copy())
+      plot_name = PlotName(img.copy())
       
-      data = Data().getData(plotFilename, xStart, xDelta, xScale, yStart, yDelta, yScale, colorMap)
 
-      table_headers = [xLabelPath] + legendItemImagePaths
-      pdf_gen.add_table(plotNamePath, yLabelPath, table_headers, data)
+      #iterating over tables
+      for i, rectangle in enumerate(rectangles):
+        plotFilename = '/tmp/plot.png'
+        x1,y1 = rectangle[0]
+        x2,y2 = rectangle[2]
+        cv2.imwrite(plotFilename, img[y1:y2, x1:x2].copy())
+
+        try:
+          ret = x_axis.findXScale(rectangle, i, args.no_interrupt)
+        except:
+          ret = [100, 10, 0, 100]
+
+        xLabelPath, mx = x_axis.findXLabel(rectangle, ret[1], i, index)
+        xScale = ret[0]
+        xStart = ret[2]
+        xDelta = ret[3]
+
+        try:
+          ret = y_axis.findYScale(rectangle, i, args.no_interrupt)
+        except:
+          ret = [100, 10, 0, 100]
+
+        yLabelPath = y_axis.findYLabel(rectangle, ret[1], i, index)
+        yScale = ret[0]
+        yStart = ret[2]
+        yDelta = ret[3]
+
+        plotNamePath = plot_name.getPlotName(rectangle, i, index, mx)
+
+        legends = Legends(rectangle, img)
+        legendItemImagePaths, colorMap = legends.getLegend(i, index)
+        
+        data = Data().getData(plotFilename, xStart, xDelta, xScale, yStart, yDelta, yScale, colorMap)
+
+        table_headers = [xLabelPath] + legendItemImagePaths
+        pdf_gen.add_table(plotNamePath, yLabelPath, table_headers, data)
+
+    except:
+      pass
 
   pdf_gen.print_file()
 
