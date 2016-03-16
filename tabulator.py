@@ -80,7 +80,7 @@ def main():
       data = Data().getData(plotFilename, xStart, xDelta, xScale, yStart, yDelta, yScale, colorMap)
 
       table_headers = [xLabelPath] + legendItemImagePaths
-      pdf_gen.add_table(plotNamePath, yLabelPath, table_headers, data, i)
+      pdf_gen.add_table(plotNamePath, yLabelPath, table_headers, data)
 
     pdf_gen.print_file()
 

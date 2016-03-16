@@ -1,7 +1,8 @@
 from reportlab.lib import colors
+from reportlab.lib.enums import TA_JUSTIFY, TA_CENTER
 from reportlab.lib.pagesizes import letter, inch
-from reportlab.platypus import Image, Paragraph, SimpleDocTemplate, Table, PageBreak
-from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.platypus import Image, Paragraph, SimpleDocTemplate, Table, PageBreak, Spacer
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 
 class PdfGen:
   
@@ -11,7 +12,18 @@ class PdfGen:
     self.doc = SimpleDocTemplate(self.filename, pagesize=letter)
     self.csv = csv
     self.tableCount = 0
-
+    self.writeTeamName()
+    
+  def writeTeamName(self):
+    tabulatorText = '<center><font size=72><u>Tabulator</u></font></center><br><br><br><br><br><br><br><br>'
+    teamText = '<center><font size=72>Team 2</font></center>'
+    styleSheet = getSampleStyleSheet()
+    styleSheet.add(ParagraphStyle(name='Center', alignment=TA_JUSTIFY))
+    self.elements.append(Paragraph(tabulatorText, styleSheet["Normal"]))
+    self.elements.append(Spacer(100, 220))
+    self.elements.append(Paragraph(teamText, styleSheet["Normal"]))
+    self.elements.append(PageBreak())
+    
   def exportAsCsv(self, values):
     csvFile = str(self.tableCount) + '.csv'
     f = open(csvFile, 'w')
@@ -26,7 +38,7 @@ class PdfGen:
     f.close()
     return csvFile
 
-  def add_table(self, graphName, yAxisTitle, labels, values, i):
+  def add_table(self, graphName, yAxisTitle, labels, values):
     # container for the 'Flowable' objects
     self.tableCount += 1
     graphNameImg = Image(graphName)
@@ -72,7 +84,7 @@ class PdfGen:
     self.elements.append(PageBreak())
     
   def print_file(self):
-    try:
-      self.doc.build(self.elements)
-    except:
-      print "Could not generate output pdf" 
+    self.doc.build(self.elements)
+if __name__=="__main__":
+  pdfgen = PdfGen('team2.pdf')
+  pdfgen.print_file()
