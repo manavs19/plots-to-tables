@@ -186,4 +186,7 @@ class YAxis:
       yLabel = cc[yLabel[1]:yLabel[1]+yLabel[3], yLabel[0]:yLabel[0]+yLabel[2]].copy()
       yLabel = np.rot90(yLabel, 3)
 
-    return yLabel
+    yLabelPath = '/tmp/ylabel.png'
+    cv2.imwrite(yLabelPath, yLabel)
+
+    return yLabelPath

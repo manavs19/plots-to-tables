@@ -70,4 +70,7 @@ class PlotName:
     if plotName != None:
       plotName = cc[plotName[1]:plotName[1]+plotName[3], plotName[0]:plotName[0]+plotName[2]]
 
-    return plotName
+    plotNamePath = '/tmp/plotName.png'
+    cv2.imwrite(plotNamePath, plotName)
+
+    return plotNamePath

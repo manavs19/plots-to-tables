@@ -192,4 +192,7 @@ class XAxis:
     mx = xLabel[1]+xLabel[3] + mx
     xLabel = cc[xLabel[1]:xLabel[1]+xLabel[3], xLabel[0]:xLabel[0]+xLabel[2]]
 
-    return xLabel, mx
+    xLabelPath = '/tmp/xlabel.png'
+    cv2.imwrite(xLabelPath, xLabel)
+
+    return xLabelPath, mx
