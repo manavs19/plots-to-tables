@@ -156,19 +156,19 @@ class XAxis:
 
     while True:
       try:
-        print "Enter the starting y value:"
-        yStart = float(raw_input())
+        print "Enter the starting x value:"
+        xStart = float(raw_input())
         break
       except ValueError:
-        print "Enter valid y value"
+        print "Enter valid x value"
 
     while True:
       try:
-        print "Enter the y axis division:"
-        yDelta = float(raw_input())
+        print "Enter the x axis division:"
+        xDelta = float(raw_input())
         break
       except ValueError:
-        print "Enter valid y axis division value"
+        print "Enter valid x axis division value"
 
     return xStart, xDelta
 

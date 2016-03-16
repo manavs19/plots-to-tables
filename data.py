@@ -8,6 +8,9 @@ class Data:
     extractCommand += str(xStart) + " "
     extractCommand += str(xDelta) + " "
     extractCommand += str(xScale) + " " 
+    extractCommand += str(yStart) + " "
+    extractCommand += str(yDelta) + " "
+    extractCommand += str(yScale) + " "     
     
     for k,v in colorMap.iteritems():
       extractCommand += str(v) + " "
@@ -18,7 +21,6 @@ class Data:
     with open(extractedDatafile, 'r') as fin:
       for line in fin:
         line = line.strip().split()
-        line = map(float, line)
         data.append(line)
-
+    # print data
     return data

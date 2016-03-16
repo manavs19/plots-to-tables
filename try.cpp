@@ -62,34 +62,138 @@ vector<Point> extract_points(Mat img, int hue,int ten_length)
   int iterated_c=0;
   int yavg = 0;
   int yavgcnt=0;
+  int minx=img.cols-1,maxx=0;
+
+
+  //Counting start and end of the graphs
+  for(int c=0;c<img.cols;c++)
+  {
+    for(int r=0;r<img.rows;r++)
+    {
+      if(img.at<Vec3b>(r,c)[0]> hue - 5 && img.at<Vec3b>(r,c)[0]< hue + 5)
+      {
+        minx=c;
+        c=img.cols;
+        break;
+      }
+    }
+  }
+  for(int c=img.cols-1;c>=0;c--)
+  {
+    for(int r=0; r<img.rows; r++)
+    {
+      if(img.at<Vec3b>(r,c)[0]> hue - 5 && img.at<Vec3b>(r,c)[0]< hue + 5)
+      {
+        maxx=c;
+        c=-1;
+        break;
+      }
+    }
+  }
+
+
+
+  //cout<<"min-"<<minx<<"max-"<<maxx<<endl;
+  vector<Point> iterations;
   for(int c=0;c<img.cols;c++)
   {
     int ycol=0;
     int count=0;
+
+    //checking heads
+    vector<int> heads;
+    int lastpixrow;
     for(int r=0;r<img.rows;r++)
     { //computes avg y for each column
       if(img.at<Vec3b>(r,c)[0]> hue - 5 && img.at<Vec3b>(r,c)[0]< hue + 5)
       {
+        if(heads.size()==0)
+        {
+          heads.push_back(r);
+          lastpixrow=r;
+        }
+
+        if((r-lastpixrow)>5)
+        {
+          heads.push_back(r);
+          lastpixrow=r;
+        }
+        else
+        {
+          lastpixrow=r;
+        }
+      }
+    }
+    int starter=0;
+    if(heads.size()>1)
+    {
+      if(iterations.size()==0)
+      {
+        starter =0;
+      }
+      else
+      {
+        int mindist=99999999;
+        for(int m=0; m<heads.size();m++)
+        {
+          //circle(img,Point(heads[m],c),4,Scalar(90,180,180),1);
+          Point lastpoint=iterations[iterations.size()-1];
+          if((abs(heads[m]-lastpoint.y) + abs(c-lastpoint.x))<mindist)
+          {
+            mindist=(abs(heads[m]-lastpoint.y) + abs(c-lastpoint.x));
+            starter=heads[m];
+          }
+        }
+      }
+    }
+    //checking heads
+
+    lastpixrow=-1;
+    for(int r=starter;r<img.rows;r++)
+    {
+      //computes avg y for each column
+      if(img.at<Vec3b>(r,c)[0]> hue - 5 && img.at<Vec3b>(r,c)[0]< hue + 5)
+      {
+        if(lastpixrow!=-1)
+        {
+          if((r-lastpixrow)>5)
+            break;
+        }
         count ++;
         ycol += r;
+        lastpixrow = r;
       }
     }
     if(count !=0)
     {
       yavgcnt++;
       yavg+=int((ycol)/count);
+      iterations.push_back(Point(int(ycol/count),c));
     }
-
     ycol=count=0;
     if(c > 0 && c % int(ten_length/10) == 0)
     { //computes the averaged out point in the line between min lengths
       Point ex;
       ex.x=int(iterated_c + int(ten_length / 20));
       if(yavgcnt!=0)
-        ex.y = (int(yavg / yavgcnt));
+        ex.y = (img.rows - int(yavg / yavgcnt));
+      if(yavgcnt == 0 && extracted_points.size() > 2)
+      {
+        int deltax=(extracted_points[extracted_points.size()-1].x - extracted_points[extracted_points.size()-2].x);
+        int deltay=(extracted_points[extracted_points.size()-1].y - extracted_points[extracted_points.size()-2].y);
+        double m=double(deltay)/double(deltax);
+        ex.y=int(extracted_points[extracted_points.size()-1].y + m * double(deltax));
+      }
+      iterated_c = c;
+      if(ex.x < minx || ex.x > maxx)
+      {
+        //cout<<"1"<<endl;
+        /////////Add handle for outside points///////
+        extracted_points.push_back(Point(ex.x,-1));
+        continue;
+      }
       extracted_points.push_back(ex);
       //cout<<"x="<<ex.x<<"y="<<ex.y<<endl;
-      iterated_c = c;
       yavg=yavgcnt=0;
     }
   }
@@ -98,7 +202,7 @@ vector<Point> extract_points(Mat img, int hue,int ten_length)
     cvtColor(img, img, CV_HSV2BGR);
     for(int i=0;i<extracted_points.size();i++)
     {
-      circle(img, extracted_points[i],4,Scalar(255,255,255),2);
+      circle(img, Point(extracted_points[i].x,img.rows - extracted_points[i].y),1,Scalar(255,255,255),1);
     }
     imshow("curves",img);
     waitKey(0);
@@ -106,7 +210,7 @@ vector<Point> extract_points(Mat img, int hue,int ten_length)
 
   return extracted_points;
 }
-vector<vector<Point> >  findplot(Mat img)
+vector<vector<Point> >  findplot(Mat img,int ten_length)
 {
 	//Image Colour based Segmentation (grayscale removal) to remove axes,text
   for(int i=0; i<img.rows;i++)
@@ -175,7 +279,7 @@ vector<vector<Point> >  findplot(Mat img)
         }
       }
     }
-    curve_points.push_back(extract_points(nwimg,*it,0));
+    curve_points.push_back(extract_points(nwimg,*it,ten_length));
     if(DEBUG == 2)
     {
       cvtColor(nwimg, nwimg, CV_HSV2BGR);
@@ -191,7 +295,7 @@ vector<vector<Point> >  findplot(Mat img)
 
 	return curve_points;
 }
-vector<vector<Point> >   findplot(Mat img, vector<int> curveclrHSV)
+vector<vector<Point> >   findplot(Mat img, vector<int> curveclrHSV,int ten_length)
 {
 	//Image Colour based Segmentation (grayscale removal) to remove axes,text
   for(int i=0; i<img.rows;i++)
@@ -226,7 +330,7 @@ vector<vector<Point> >   findplot(Mat img, vector<int> curveclrHSV)
         }
       }
     }
-    curve_points.push_back(extract_points(nwimg,*it,0));
+    curve_points.push_back(extract_points(nwimg,*it,ten_length));
     if(DEBUG == 2)
     {
       cvtColor(nwimg, nwimg, CV_HSV2BGR);
@@ -243,16 +347,19 @@ vector<vector<Point> >   findplot(Mat img, vector<int> curveclrHSV)
 	return curve_points;
 }
 
-//fin fout xStart xDelta tenlength hue1 hue2.....
+
 int main(int argc, char *argv[])
 {
-	string inputFilename = argv[1];
-	string outputFilename = argv[2];
-	float xStart = atof(argv[3]);
-	float xDelta = atof(argv[4]);
-	int ten_length = atoi(argv[5]);
+  string inputFilename = argv[1];
+  string outputFilename = argv[2];
+  float xStart = atof(argv[3]);
+  float xDelta = atof(argv[4]);
+  int ten_length = atoi(argv[5]);
+  float yStart = atof(argv[6]);
+  float yDelta = atof(argv[7]);
+  int yscale = atoi(argv[8]);
 
-	Mat img;
+  Mat img;
   vector<int> a;
   // a.push_back(30);
   // a.push_back(94);
@@ -260,41 +367,81 @@ int main(int argc, char *argv[])
   // a.push_back(178);
   // a.push_back(113);
   // a.push_back(52);
+  int caller =0;
+  if(argc == 9)
+  {
+    ;//cout<<"basic"<<endl;
+  }
+  else{
+    for(int i=9;i<argc;++i)
+      a.push_back(atoi(argv[i]));
+    caller=1;
+  }
 
-  for(int i=6;i<argc;++i)
-  	a.push_back(atoi(argv[i]));
-
-	//namedWindow("original", CV_WINDOW_FULLSCREEN);
-	//namedWindow("filtered", CV_WINDOW_NORMAL);
-	img = imread(inputFilename, CV_LOAD_IMAGE_COLOR);
+  //namedWindow("original", CV_WINDOW_FULLSCREEN);
+  //namedWindow("filtered", CV_WINDOW_NORMAL);
+  img = imread(inputFilename, CV_LOAD_IMAGE_COLOR);
+  vector<vector<Point> >curvePoints;
   //imshow("original",img);
+  if(caller)
+    curvePoints = findplot(img, a, ten_length);
+  else
+    curvePoints = findplot(img,ten_length);
 
-  	vector<vector<Point> >curvePoints = findplot(img, a);
+  ofstream fout;
+  fout.open(outputFilename.c_str(), ofstream::out);
+  int numCurves = curvePoints.size();
+  int numPoints = curvePoints[0].size();
+  double actualx=0;
+  double actualy=0;
+  for(int i=0;i<numPoints;++i)//each iteration writes a row in the file
+  {
+    float x = curvePoints[0][i].x;
+    actualx=double(xStart + double(double(xDelta / ten_length) * x));
+    fout<<actualx<<" ";
+    for(int j=0;j<numCurves;++j)
+    {
+      float y = curvePoints[j][i].y;
+      if(y==-1)
+        fout<<"- ";
+      else
+      {
+        actualy=double(yStart + double(double(yDelta / yscale) * y));
+        fout<<actualy<<" ";
+      }
+    }
+    fout<<endl;
+  }
 
-  	ofstream fout;
-	fout.open(outputFilename.c_str(), ofstream::out);
-	int numCurves = curvePoints.size();
-	int numPoints = curvePoints[0].size();
-	for(int i=0;i<numPoints;++i)//each iteration writes a row in the file
-	{
-		float x = curvePoints[0][i].x;
-		fout<<x<<" ";
-		for(int j=0;j<numCurves;++j)
-		{
-			float y = curvePoints[j][i].y;
-			fout<<y<<" "; 
-		}
-		fout<<endl;
-	}
-	fout.close();
 
-	// cout<<"out is"<<endl;
- //  for(vector<vector<Point> >::iterator it = curvePoints.begin();it!=curvePoints.end();++it)
- //  {
- //  	for(vector<Point>::iterator it2=it->begin();it2!=it->end();++it2)
- //  		cout<<*it2<<" ";
- //  	cout<<endl;
- //  }
+
+
+  /*for(int i=0;i<numPoints;++i)//each iteration writes a row in the file
+  {
+    float x = curvePoints[0][i].x;
+    actualx=double(xStart + double(double(xDelta / ten_length) * x));
+    fout<<actualx<<" ";
+  }
+  fout<<endl;
+  for(int j=0;j<numCurves;j++)
+  {
+    for(int i=0;i<numPoints;++i)//each iteration writes a row in the file
+    {
+      float y = curvePoints[j][i].y;
+      actualy=double(yStart + double(double(yDelta / yscale) * y));
+      fout<<actualy<<" ";
+    }
+    fout<<endl;
+  }*/
+
+
+
+
+
+
+
+  fout.close();
+  //imshow("original",img);
   //findplot(img,a);
   //Return value of the above is a vector of a vector of Point.
 
