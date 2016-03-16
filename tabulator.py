@@ -18,16 +18,24 @@ from pdfGen import PdfGen
 from data import Data
 
 parser = argparse.ArgumentParser(
-  description='Computes data from the plots in the given PDF')
+  description='Computes data from the plots in the given PDF/s')
 
-parser.add_argument('--inp', type=str, help='Path of the input pdf')
-parser.add_argument('--out', type=str, help='Path of the output pdf')
+parser.add_argument('--inp', default=None, type=str, help='Path of the input')
+parser.add_argument('--out', type=str, default=None, help='Path of the output pdf')
 parser.add_argument('--csv', type=str, default=None, help='If provided, csv data is also written in this folder')
 parser.add_argument('--no_interrupt', type=bool, default=False, help='True if user does not want to enter text recognition data if OCR fails.\
   In that case, values shall be given in terms of pixels')
 
+args = parser.parse_args()
+
 def main():
-  args = parser.parse_args()
+  if args.inp == None:
+    print "\nPlease enter input path\n"
+    exit(1)
+
+  if args.out == None:
+    print "\nPlease enter output PDF path\n"
+    exit(1)
 
   fns = glob(args.inp)
 
