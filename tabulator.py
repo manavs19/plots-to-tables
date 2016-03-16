@@ -96,7 +96,7 @@ def main():
         pdf_gen.add_table(plotNamePath, yLabelPath, table_headers, data)
 
     except:
-      pass
+      print "Could not process ", fn
 
   pdf_gen.print_file()
 
