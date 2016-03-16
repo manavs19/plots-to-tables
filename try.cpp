@@ -247,17 +247,25 @@ int main()
 {
 	Mat img;
   vector<int> a;
-  a.push_back(19);
-  a.push_back(67);
-  a.push_back(115);
-  a.push_back(158);
+  a.push_back(30);
+  a.push_back(94);
+  a.push_back(166);
+  a.push_back(178);
+  a.push_back(113);
+  a.push_back(52);
 
 	//namedWindow("original", CV_WINDOW_FULLSCREEN);
 	//namedWindow("filtered", CV_WINDOW_NORMAL);
-	img = imread("7.png", CV_LOAD_IMAGE_COLOR);
+	img = imread("data/1.png", CV_LOAD_IMAGE_COLOR);
   //imshow("original",img);
 
-  findplot(img);
+  vector<vector<Point> >curvePoints = findplot(img, a);
+  for(vector<vector<Point> >::iterator it = curvePoints.begin();it!=curvePoints.end();++it)
+  {
+  	for(vector<Point>::iterator it2=it->begin();it2!=it->end();++it2)
+  		cout<<*it2<<" ";
+  	cout<<endl;
+  }
   //findplot(img,a);
   //Return value of the above is a vector of a vector of Point.
 

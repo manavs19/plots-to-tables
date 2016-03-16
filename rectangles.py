@@ -14,11 +14,14 @@ if PY3:
 
 import numpy as np
 import cv2
+import time
 import copy
 from bfs import BFS
 from pdfManager import PDFManager
 import operator
 from axisOcr import OCR
+import os
+import subprocess
 
 def angle_cos(p0, p1, p2):
     d1, d2 = (p0-p1).astype('float'), (p2-p1).astype('float')
@@ -197,8 +200,29 @@ def findXScale(img, rectangle, i):
             continue
 
     if len(mp)<2:#could not find 2 numbers
-        print "could not find 2 numbers"
-        return scale, mx
+        minX, minY = rectangle[0]
+        maxX, maxY = rectangle[2]
+        currH,currW = maxY-minY, maxX-minX
+        cc1 = img[int(maxY-0.01*currH):int(maxY+0.1*currH), int(minX-0.1*currW):int(maxX + 0.05*currW)].copy()
+        print "The OCR engine could not recognize the x-axis markings.Press any key to close the window and enter the required values."
+        WINDOW_NAME = "X-Axis"
+        cv2.namedWindow(WINDOW_NAME, cv2.WINDOW_NORMAL)
+        cv2.resizeWindow(WINDOW_NAME, 800, 400);
+        cv2.startWindowThread()
+        cv2.imshow(WINDOW_NAME, cc1)
+
+        # activateWindow(WINDOW_NAME)
+        time.sleep(0.5)#0.1seconds
+        os.system("wmctrl -a X-Axis")#bring to front
+        cv2.waitKey(0)
+        cv2.destroyWindow(WINDOW_NAME)
+        # cv.waitKey(1)
+        print "Enter the starting x value:"
+        xStart = float(raw_input())
+        print "Enter the x axis division:"
+        delta = float(raw_input())        
+        return scale, mx, xStart, delta
+
     sorted_mp = sorted(mp.items(), key=operator.itemgetter(0))
     leastCount = 100000000
     store = None
@@ -314,8 +338,27 @@ def findYScale(img, rectangle, i):
             continue
 
     if len(mp)<2:#could not find 2 numbers
-        print "could not find 2 numbers"
-        return scale, mx
+        minX, minY = rectangle[0]
+        maxX, maxY = rectangle[2]
+        currH,currW = maxY-minY, maxX-minX
+        cc1 = img[int(minY-0.05*currH):int(maxY+0.1*currH), int(minX-0.1*currW):int(minX+0.01*currW)].copy()
+        print "The OCR engine could not recognize the y-axis markings.Press any key to close the window and enter the required values."
+        WINDOW_NAME = "Y-Axis"
+        cv2.namedWindow(WINDOW_NAME, cv2.WINDOW_NORMAL)
+        cv2.resizeWindow(WINDOW_NAME, 400, 800);
+        cv2.startWindowThread()
+        cv2.imshow(WINDOW_NAME, cc1)
+
+        # activateWindow(WINDOW_NAME)
+        time.sleep(0.5)#0.1seconds
+        os.system("wmctrl -a Y-Axis")#bring to front
+        cv2.waitKey(0)
+        cv2.destroyWindow(WINDOW_NAME)
+        print "Enter the starting y value:"
+        yStart = float(raw_input())
+        print "Enter the y axis division:"
+        delta = float(raw_input())
+        return scale, mx, yStart, delta
     sorted_mp = sorted(mp.items(), key=operator.itemgetter(0))
     leastCount = 100000000
     store = None
@@ -567,8 +610,8 @@ def findLabels(i, img):
         h=square[2][1] - square[0][1] - 16
 
     #Draw legend on img
-    # cv2.rectangle(img,(x,y),(x+w,y+h),(0,255,0),1)
-    # cv2.imwrite('legend'+str(i)+'.png', img)
+    cv2.rectangle(img,(x,y),(x+w,y+h),(0,255,0),1)
+    cv2.imwrite('legend'+str(i)+'.png', img)
 
     legendImg = img[y:y+h, x:x+w].copy()
     offsetX, offsetY = x,y #save 
@@ -951,64 +994,43 @@ if __name__ == '__main__':
             ret = findXScale(img.copy(), rectangle, i)#ret/10 reduces arror a lot
             xLabel, mx = findXLabel(img.copy(), rectangle, ret[1], i)
             xScale = ret[0]
-            xStart = None
-            xDelta = None
-            if len(ret)==2:#scale,mx
-                #TODO:
-                print "The OCR engine could not recognize the x-axis markings."
-                print "Enter the starting x value:"
-                # xStart = float(raw_input())
-                print "Enter the x axis division:"
-                # xDelta = float(raw_input())
-            else:#scale,mx,xStart,delta
-                xStart = ret[2]
-                xDelta = ret[3]
-
-
+            xStart = ret[2]
+            xDelta = ret[3]
+            
             #do for y axis
             ret = findYScale(img.copy(), rectangle, i)#ret/10 reduces arror a lot
             yLabel = findYLabel(img.copy(), rectangle, ret[1], i)
             yScale = ret[0]
-            yStart = None
-            yDelta = None
-            if len(ret)==2:#scale,mx
-                #TODO:
-                pass
-                print "The OCR engine could not recognize the y-axis markings."
-                print "Enter the starting y value:"
-                # yStart = float(raw_input())
-                print "Enter the y axis division:"
-                # yDelta = float(raw_input())
-            else:#scale,mx,xStart,delta
-                yStart = ret[2]
-                yDelta = ret[3]
+            yStart = ret[2]
+            yDelta = ret[3]
 
             plotName = findPlotName(img.copy(), rectangle, i, mx)
 
 
-        # for i, rectangle in enumerate(rectangles):
-        #     minX, minY = rectangle[0]
-        #     maxX, maxY = rectangle[2]
-        #     minX += 15
-        #     minY += 15
-        #     maxX -= 15
-        #     maxY -= 15
-        #     plot = img[minY:maxY, minX:maxX]
-        #     plotCopy = plot.copy()
-        #     labels = findLabels(i, plotCopy)
-        #     if labels == None:#could not find legend
-        #         #TODO:error handling
-        #         print "legend not found"
-        #         continue
-        #     plotCopy = plot.copy()
-        #     labelsCopy = copy.copy(labels)
-        #     colours = findColours(labelsCopy, plotCopy, i)
-        #     print colours            
+        for i, rectangle in enumerate(rectangles):
+            minX, minY = rectangle[0]
+            maxX, maxY = rectangle[2]
+            minX += 15
+            minY += 15
+            maxX -= 15
+            maxY -= 15
+            plot = img[minY:maxY, minX:maxX]
+            plotCopy = plot.copy()
+            labels = findLabels(i, plotCopy)
+            if labels == None:#could not find legend
+                #TODO:error handling
+                print "legend not found"
+                continue
+            plotCopy = plot.copy()
+            labelsCopy = copy.copy(labels)
+            colourMap = findColours(labelsCopy, plotCopy, i)
+            print colourMap            
         
         cv2.drawContours(img, rectangles, -1, (0, 255, 0), 3 )
         cv2.imwrite('rectangles.png', img)
+
         
-        ch = 0xFF & cv2.waitKey()
-        if ch == 27:
-            break
-    cv2.destroyAllWindows()
+        # ch = 0xFF & cv2.waitKey()
+        # if ch == 27:
+        #     break
+    # cv2.destroyAllWindows()

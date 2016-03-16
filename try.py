@@ -127,6 +127,7 @@ def findplot1(img,ten_length):
     return curve_points
 
 
-img = cv2.imread("7.png", 1)
+img = cv2.imread("data/1_low.png", 1)
 cv2.imshow("original",img)
 out=findplot(img,[19,67,115,158],0)
+print out

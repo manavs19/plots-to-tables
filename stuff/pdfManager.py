@@ -49,7 +49,7 @@ class PDFManager:
 	def convertPDFToPNG(self, pngPath):
 		args = [
 		    "gs",
-		    "-dNOPAUSE", "-dQUIET", "-dNOPROMPT",
+		    "-dNOPAUSE", "-dQUIET", "-dNOPROMPT", "-dBATCH",
 		    "-sDEVICE=png16m",
 		    "-sOutputFile=" + pngPath,
 		    "-r400",
