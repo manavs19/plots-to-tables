@@ -29,8 +29,14 @@ parser.add_argument('--no_interrupt', type=bool, default=False, help='True if us
 def main():
   args = parser.parse_args()
 
-  for fn in glob(args.inp):
-    img = Converter().convertPDF(args.inp)
+  fns = glob(args.inp)
+
+  if len(fns) == 0:
+    print "\nNo input file found, please check input path\n"
+    exit(1)
+
+  for fn in fns:
+    img = Converter().convertPDF(fn)
 
     rectangles = PlotRectangles().getRectangles(img)
 
@@ -46,13 +52,21 @@ def main():
       x2,y2 = rectangle[2]
       cv2.imwrite(plotFilename, img[y1:y2, x1:x2].copy())
 
-      ret = x_axis.findXScale(rectangle, i, args.no_interrupt)
+      try:
+        ret = x_axis.findXScale(rectangle, i, args.no_interrupt)
+      except:
+        ret = [100, 10, 0, 100]
+
       xLabelPath, mx = x_axis.findXLabel(rectangle, ret[1], i)
       xScale = ret[0]
       xStart = ret[2]
       xDelta = ret[3]
 
-      ret = y_axis.findYScale(rectangle, i, args.no_interrupt)
+      try:
+        ret = y_axis.findYScale(rectangle, i, args.no_interrupt)
+      except:
+        ret = [100, 10, 0, 100]
+      
       yLabelPath = y_axis.findYLabel(rectangle, ret[1], i)
       yScale = ret[0]
       yStart = ret[2]
