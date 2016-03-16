@@ -122,13 +122,13 @@ class XAxis:
     pixelDiff = sorted_mp[store+1][1] - sorted_mp[store][1]
     divisionsInBetween = round(pixelDiff/float(scale))
 
-    delta = float(leastCount)/divisionsInBetween
-    xStart = sorted_mp[store][0] - round(sorted_mp[store][1]/float(scale))*delta#0
+    xDelta = float(leastCount)/divisionsInBetween
+    xStart = sorted_mp[store][0] - round(sorted_mp[store][1]/float(scale))*xDelta#0
 
     # scale is number of pixels in a division
     # xStart is actual start value
     # delta is the actual difference between 2 consecutive values
-    return scale, mx, xStart, delta
+    return scale, mx, xStart, xDelta
 
   def handle_ocr_failure(self, rectangle, img):
     minX, minY = rectangle[0]

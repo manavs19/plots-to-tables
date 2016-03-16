@@ -107,8 +107,8 @@ class YAxis:
         continue
 
     if len(mp)<2:#could not find 2 numbers
-      yStart, yDelta = handle_ocr_failure(rectangle, img)
-      return scale, mx, yStart, delta
+      yStart, yDelta = self.handle_ocr_failure(rectangle, img)
+      return scale, mx, yStart, yDelta
 
     sorted_mp = sorted(mp.items(), key=operator.itemgetter(0))
     leastCount = 100000000
@@ -121,13 +121,13 @@ class YAxis:
 
     pixelDiff = sorted_mp[store][1] - sorted_mp[store+1][1]
     divisionsInBetween = round(pixelDiff/float(scale))
-    delta = float(leastCount)/divisionsInBetween#1
-    yStart = sorted_mp[store][0] - round((h-sorted_mp[store][1])/float(scale))*delta#0
+    yDelta = float(leastCount)/divisionsInBetween#1
+    yStart = sorted_mp[store][0] - round((h-sorted_mp[store][1])/float(scale))*yDelta#0
 
     #scale is number of pixels in a division
     #xStart is actual start value
     #delta is the actual difference between 2 consecutive values
-    return scale, mx, yStart, delta
+    return scale, mx, yStart, yDelta
 
   def handle_ocr_failure(self, rectangle, img):
     minX, minY = rectangle[0]

@@ -5,3 +5,6 @@ convert -density 50 1.pdf -quality 100 1_verylow.png
 density affects height and width
 
 g++ file.cpp `pkg-config --libs opencv --cflags`
+
+
+sudo apt-get install libjpeg8-dev

@@ -4,6 +4,7 @@
 #include <vector>
 #include <math.h>
 #include  <opencv2/imgproc/imgproc.hpp>
+#include <fstream>
 
 using namespace std;
 using namespace cv;
@@ -242,30 +243,58 @@ vector<vector<Point> >   findplot(Mat img, vector<int> curveclrHSV)
 	return curve_points;
 }
 
-
-int main()
+//fin fout xStart xDelta tenlength hue1 hue2.....
+int main(int argc, char *argv[])
 {
+	string inputFilename = argv[1];
+	string outputFilename = argv[2];
+	float xStart = atof(argv[3]);
+	float xDelta = atof(argv[4]);
+	int ten_length = atoi(argv[5]);
+
 	Mat img;
   vector<int> a;
-  a.push_back(30);
-  a.push_back(94);
-  a.push_back(166);
-  a.push_back(178);
-  a.push_back(113);
-  a.push_back(52);
+  // a.push_back(30);
+  // a.push_back(94);
+  // a.push_back(166);
+  // a.push_back(178);
+  // a.push_back(113);
+  // a.push_back(52);
+
+  for(int i=6;i<argc;++i)
+  	a.push_back(atoi(argv[i]));
 
 	//namedWindow("original", CV_WINDOW_FULLSCREEN);
 	//namedWindow("filtered", CV_WINDOW_NORMAL);
-	img = imread("data/1.png", CV_LOAD_IMAGE_COLOR);
+	img = imread(inputFilename, CV_LOAD_IMAGE_COLOR);
   //imshow("original",img);
 
-  vector<vector<Point> >curvePoints = findplot(img, a);
-  for(vector<vector<Point> >::iterator it = curvePoints.begin();it!=curvePoints.end();++it)
-  {
-  	for(vector<Point>::iterator it2=it->begin();it2!=it->end();++it2)
-  		cout<<*it2<<" ";
-  	cout<<endl;
-  }
+  	vector<vector<Point> >curvePoints = findplot(img, a);
+
+  	ofstream fout;
+	fout.open(outputFilename.c_str(), ofstream::out);
+	int numCurves = curvePoints.size();
+	int numPoints = curvePoints[0].size();
+	for(int i=0;i<numPoints;++i)//each iteration writes a row in the file
+	{
+		float x = curvePoints[0][i].x;
+		fout<<x<<" ";
+		for(int j=0;j<numCurves;++j)
+		{
+			float y = curvePoints[j][i].y;
+			fout<<y<<" "; 
+		}
+		fout<<endl;
+	}
+	fout.close();
+
+	// cout<<"out is"<<endl;
+ //  for(vector<vector<Point> >::iterator it = curvePoints.begin();it!=curvePoints.end();++it)
+ //  {
+ //  	for(vector<Point>::iterator it2=it->begin();it2!=it->end();++it2)
+ //  		cout<<*it2<<" ";
+ //  	cout<<endl;
+ //  }
   //findplot(img,a);
   //Return value of the above is a vector of a vector of Point.
 
