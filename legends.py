@@ -27,17 +27,17 @@ class Legends:
     labelsCopy = copy.copy(labels)
     colourMap = self.findColours(labelsCopy, i)
     
-    labelImagePaths = self.findLabelImagePaths(labels, colourMap)
+    labelImagePaths = self.findLabelImagePaths(labels, colourMap, i)
 
     return labelImagePaths, colourMap
 
-  def findLabelImagePaths(self, labels, colourMap):
+  def findLabelImagePaths(self, labels, colourMap, i):
     labelImagePaths = []
 
     for index, label in enumerate(labels):
       if index in colourMap:
         labelImage = self.plot[label[1]:label[3], label[0]:label[2]].copy()
-        labelImagePath = '/tmp/legend' + str(index) + '.png'
+        labelImagePath = '/tmp/legend' + str(index) + '_' + str(i) + '.png'
         cv2.imwrite(labelImagePath, labelImage)
         labelImagePaths.append(labelImagePath)
 

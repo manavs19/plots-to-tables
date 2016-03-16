@@ -66,7 +66,7 @@ def main():
         ret = y_axis.findYScale(rectangle, i, args.no_interrupt)
       except:
         ret = [100, 10, 0, 100]
-      
+
       yLabelPath = y_axis.findYLabel(rectangle, ret[1], i)
       yScale = ret[0]
       yStart = ret[2]
@@ -80,7 +80,7 @@ def main():
       data = Data().getData(plotFilename, xStart, xDelta, xScale, yStart, yDelta, yScale, colorMap)
 
       table_headers = [xLabelPath] + legendItemImagePaths
-      pdf_gen.add_table(plotNamePath, yLabelPath, table_headers, data)
+      pdf_gen.add_table(plotNamePath, yLabelPath, table_headers, data, i)
 
     pdf_gen.print_file()
 

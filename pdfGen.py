@@ -26,7 +26,7 @@ class PdfGen:
     f.close()
     return csvFile
 
-  def add_table(self, graphName, yAxisTitle, labels, values):
+  def add_table(self, graphName, yAxisTitle, labels, values, i):
     # container for the 'Flowable' objects
     self.tableCount += 1
     graphNameImg = Image(graphName)
